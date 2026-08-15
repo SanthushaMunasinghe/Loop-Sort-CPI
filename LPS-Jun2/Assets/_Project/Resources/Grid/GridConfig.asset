@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ec963b2fc310416899e9de0e7892f3a9, type: 3}
+  m_Name: GridConfig
+  m_EditorClassIdentifier: 
+  Type: 0
+  GridPrefab: {fileID: 8644264151197462967, guid: 52940d9bcf01148ad91095baa02800ff, type: 3}
+  CellPrefab: {fileID: 8297716781307829191, guid: 4a07969d84f304a24abe9ee717cd8bb8, type: 3}
+  OuterRadius: 0.25
+  MinSize: {x: 0, y: 3}
+  MaxSize: {x: 100, y: 4}

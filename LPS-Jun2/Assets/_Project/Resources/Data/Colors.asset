@@ -1,0 +1,290 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e7279efbc8734149861043cb34b753b4, type: 3}
+  m_Name: Colors
+  m_EditorClassIdentifier: 
+  Collection:
+    list:
+    - Key:
+        <Base>k__BackingField: 1
+        <Shade>k__BackingField: 0
+      Value:
+        Material: {fileID: 2100000, guid: 26d086fa253364c8493bd1813f16b5cf, type: 2}
+        Sprite: {fileID: 21300000, guid: e8c59a2ffcfda4fdbb7cabec5f660519, type: 3}
+        Color: {r: 0.773, g: 0.02614009, b: 0.022405792, a: 1}
+    - Key:
+        <Base>k__BackingField: 1
+        <Shade>k__BackingField: 1
+      Value:
+        Material: {fileID: 2100000, guid: 563c10087efb54aa688ebb8a1cfe464c, type: 2}
+        Sprite: {fileID: 0}
+        Color: {r: 0, g: 0, b: 0, a: 0}
+    - Key:
+        <Base>k__BackingField: 1
+        <Shade>k__BackingField: 2
+      Value:
+        Material: {fileID: 2100000, guid: 10fad0fedf3b04cf2b1681894a9e629d, type: 2}
+        Sprite: {fileID: 0}
+        Color: {r: 0, g: 0, b: 0, a: 0}
+    - Key:
+        <Base>k__BackingField: 2
+        <Shade>k__BackingField: 0
+      Value:
+        Material: {fileID: 2100000, guid: e718963d2525a4591a435ed71beecad5, type: 2}
+        Sprite: {fileID: 21300000, guid: 25280d0c43d944ec7a5ff5212606eb0e, type: 3}
+        Color: {r: 0.1323913, g: 0.48417386, b: 0.78300005, a: 1}
+    - Key:
+        <Base>k__BackingField: 2
+        <Shade>k__BackingField: 1
+      Value:
+        Material: {fileID: 2100000, guid: 4a074e3e608644af69a21fa8e137a7c5, type: 2}
+        Sprite: {fileID: 21300000, guid: 6e36fe852e77444fda52c52dea80bcb6, type: 3}
+        Color: {r: 0.40710592, g: 0.65534127, b: 0.84400004, a: 1}
+    - Key:
+        <Base>k__BackingField: 2
+        <Shade>k__BackingField: 2
+      Value:
+        Material: {fileID: 2100000, guid: 93cc959fb33744173946d31bf8412271, type: 2}
+        Sprite: {fileID: 0}
+        Color: {r: 0, g: 0, b: 0, a: 0}
+    - Key:
+        <Base>k__BackingField: 3
+        <Shade>k__BackingField: 0
+      Value:
+        Material: {fileID: 2100000, guid: 0229289963fe04c0d9a879624dea892d, type: 2}
+        Sprite: {fileID: 21300000, guid: 909aa0bfdd36347a798b322e28ba5254, type: 3}
+        Color: {r: 0.23362508, g: 0.801, b: 0.08343752, a: 1}
+    - Key:
+        <Base>k__BackingField: 3
+        <Shade>k__BackingField: 1
+      Value:
+        Material: {fileID: 2100000, guid: fe72c838755d84712a3cb93d4ea0946c, type: 2}
+        Sprite: {fileID: 0}
+        Color: {r: 0, g: 0, b: 0, a: 0}
+    - Key:
+        <Base>k__BackingField: 3
+        <Shade>k__BackingField: 2
+      Value:
+        Material: {fileID: 2100000, guid: 5acba9efb11654d4aa9fabe5ef1020ca, type: 2}
+        Sprite: {fileID: 21300000, guid: a5826990755124a9eb422e03775b56e0, type: 3}
+        Color: {r: 0.20872721, g: 0.574, b: 0.1435, a: 1}
+    - Key:
+        <Base>k__BackingField: 4
+        <Shade>k__BackingField: 0
+      Value:
+        Material: {fileID: 2100000, guid: 0caf8e4c0f221409fa784613bf233e09, type: 2}
+        Sprite: {fileID: 21300000, guid: 3e267e7c9cfeb416cb9e1115b0acad59, type: 3}
+        Color: {r: 0.81960785, g: 0.627451, b: 0, a: 1}
+    - Key:
+        <Base>k__BackingField: 4
+        <Shade>k__BackingField: 1
+      Value:
+        Material: {fileID: 2100000, guid: d92263c5a0e7d466a9eab5d13da8e5c6, type: 2}
+        Sprite: {fileID: 0}
+        Color: {r: 0, g: 0, b: 0, a: 0}
+    - Key:
+        <Base>k__BackingField: 4
+        <Shade>k__BackingField: 2
+      Value:
+        Material: {fileID: 2100000, guid: 120f68bba9ec74e47a99971734a907f0, type: 2}
+        Sprite: {fileID: 0}
+        Color: {r: 0, g: 0, b: 0, a: 0}
+    - Key:
+        <Base>k__BackingField: 5
+        <Shade>k__BackingField: 0
+      Value:
+        Material: {fileID: 2100000, guid: 00e71c10e0bd94fbf9a5d0dc58f7a106, type: 2}
+        Sprite: {fileID: 21300000, guid: b9bf0c0f566b744e6a9e45bd5c4f1f21, type: 3}
+        Color: {r: 0.65868473, g: 0.34645104, b: 0.78699994, a: 1}
+    - Key:
+        <Base>k__BackingField: 5
+        <Shade>k__BackingField: 1
+      Value:
+        Material: {fileID: 2100000, guid: cc43303cce8934806972d198b0e13e29, type: 2}
+        Sprite: {fileID: 0}
+        Color: {r: 0, g: 0, b: 0, a: 0}
+    - Key:
+        <Base>k__BackingField: 5
+        <Shade>k__BackingField: 2
+      Value:
+        Material: {fileID: 2100000, guid: ada0b0c66539949479c5b6fb371ed901, type: 2}
+        Sprite: {fileID: 0}
+        Color: {r: 0, g: 0, b: 0, a: 0}
+    - Key:
+        <Base>k__BackingField: 6
+        <Shade>k__BackingField: 0
+      Value:
+        Material: {fileID: 2100000, guid: 2aa6156d7bb2d41229bd07749d714100, type: 2}
+        Sprite: {fileID: 21300000, guid: 0b6307b49db1548d3bc3ea5473aa8ff3, type: 3}
+        Color: {r: 0.794, g: 0.42720652, b: 0.14240217, a: 1}
+    - Key:
+        <Base>k__BackingField: 6
+        <Shade>k__BackingField: 1
+      Value:
+        Material: {fileID: 2100000, guid: 33bbc427df029411bad3c92c33b55661, type: 2}
+        Sprite: {fileID: 0}
+        Color: {r: 0, g: 0, b: 0, a: 0}
+    - Key:
+        <Base>k__BackingField: 6
+        <Shade>k__BackingField: 2
+      Value:
+        Material: {fileID: 2100000, guid: b95db43f9722c4d46be96294c298a6e4, type: 2}
+        Sprite: {fileID: 0}
+        Color: {r: 0, g: 0, b: 0, a: 0}
+    - Key:
+        <Base>k__BackingField: 7
+        <Shade>k__BackingField: 0
+      Value:
+        Material: {fileID: 2100000, guid: 8dadcbbceaa69421f853ff6a61339fc4, type: 2}
+        Sprite: {fileID: 21300000, guid: 7cb80d064bbfd4bd7a42dc60ef108b86, type: 3}
+        Color: {r: 0.546, g: 0.38093022, b: 0.258186, a: 1}
+    - Key:
+        <Base>k__BackingField: 7
+        <Shade>k__BackingField: 1
+      Value:
+        Material: {fileID: 2100000, guid: 3d532a1a6b1c44266945b86c45d74776, type: 2}
+        Sprite: {fileID: 0}
+        Color: {r: 0, g: 0, b: 0, a: 0}
+    - Key:
+        <Base>k__BackingField: 7
+        <Shade>k__BackingField: 2
+      Value:
+        Material: {fileID: 2100000, guid: 564e5777021ab49d997fc847ae5843a9, type: 2}
+        Sprite: {fileID: 0}
+        Color: {r: 0, g: 0, b: 0, a: 0}
+    - Key:
+        <Base>k__BackingField: 8
+        <Shade>k__BackingField: 0
+      Value:
+        Material: {fileID: 2100000, guid: 067b84cbaee104d7da09206a675f7a9a, type: 2}
+        Sprite: {fileID: 21300000, guid: d891af83f2464473081a95b495d65009, type: 3}
+        Color: {r: 0.8352941, g: 0.07450981, b: 0.8392157, a: 1}
+    - Key:
+        <Base>k__BackingField: 8
+        <Shade>k__BackingField: 1
+      Value:
+        Material: {fileID: 2100000, guid: 903eddd9bdf1e4f128b79f9e8304e6cf, type: 2}
+        Sprite: {fileID: 21300000, guid: 076a1649d7ef9495388c581b53e3bfe8, type: 3}
+        Color: {r: 0.85800004, g: 0.46630436, b: 0.8095043, a: 1}
+    - Key:
+        <Base>k__BackingField: 8
+        <Shade>k__BackingField: 2
+      Value:
+        Material: {fileID: 2100000, guid: 127f6a758e469453ba6429081cb6bee1, type: 2}
+        Sprite: {fileID: 0}
+        Color: {r: 0, g: 0, b: 0, a: 0}
+    - Key:
+        <Base>k__BackingField: 9
+        <Shade>k__BackingField: 0
+      Value:
+        Material: {fileID: 2100000, guid: e0e3a8d2364984684966a7914c70f774, type: 2}
+        Sprite: {fileID: 0}
+        Color: {r: 0, g: 0, b: 0, a: 0}
+    - Key:
+        <Base>k__BackingField: 9
+        <Shade>k__BackingField: 1
+      Value:
+        Material: {fileID: 2100000, guid: c6a620622e1c24ee1a954a0ddaa8c244, type: 2}
+        Sprite: {fileID: 0}
+        Color: {r: 0, g: 0, b: 0, a: 0}
+    - Key:
+        <Base>k__BackingField: 9
+        <Shade>k__BackingField: 2
+      Value:
+        Material: {fileID: 2100000, guid: 502d4c897f3d04e9294b662e03921ee3, type: 2}
+        Sprite: {fileID: 0}
+        Color: {r: 0, g: 0, b: 0, a: 0}
+    - Key:
+        <Base>k__BackingField: 10
+        <Shade>k__BackingField: 0
+      Value:
+        Material: {fileID: 2100000, guid: dc2aafc2cc4cc422ea721e64e921836c, type: 2}
+        Sprite: {fileID: 0}
+        Color: {r: 0, g: 0, b: 0, a: 0}
+    - Key:
+        <Base>k__BackingField: 10
+        <Shade>k__BackingField: 1
+      Value:
+        Material: {fileID: 2100000, guid: f62fbf620870b417e8ce8d8954adcff2, type: 2}
+        Sprite: {fileID: 0}
+        Color: {r: 0, g: 0, b: 0, a: 0}
+    - Key:
+        <Base>k__BackingField: 10
+        <Shade>k__BackingField: 2
+      Value:
+        Material: {fileID: 2100000, guid: f60360854d3324877a0907a67927bd46, type: 2}
+        Sprite: {fileID: 0}
+        Color: {r: 0, g: 0, b: 0, a: 0}
+    - Key:
+        <Base>k__BackingField: 11
+        <Shade>k__BackingField: 0
+      Value:
+        Material: {fileID: 2100000, guid: c652f69ed2d99477989f018d134f0291, type: 2}
+        Sprite: {fileID: 21300000, guid: b55021fef0c484a42b445c9d18d63bca, type: 3}
+        Color: {r: 0.47008952, g: 0.47008952, b: 0.496, a: 1}
+    - Key:
+        <Base>k__BackingField: 11
+        <Shade>k__BackingField: 1
+      Value:
+        Material: {fileID: 2100000, guid: dade2568331ba4cafa2fea6bcb69b3b4, type: 2}
+        Sprite: {fileID: 0}
+        Color: {r: 0, g: 0, b: 0, a: 0}
+    - Key:
+        <Base>k__BackingField: 11
+        <Shade>k__BackingField: 2
+      Value:
+        Material: {fileID: 2100000, guid: 085b7fbc0c0524510b341b7991c49dcd, type: 2}
+        Sprite: {fileID: 0}
+        Color: {r: 0, g: 0, b: 0, a: 0}
+    - Key:
+        <Base>k__BackingField: 12
+        <Shade>k__BackingField: 0
+      Value:
+        Material: {fileID: 2100000, guid: fc3a82d34e63242daadf2f11fd7d3306, type: 2}
+        Sprite: {fileID: 21300000, guid: f958f720714ce4aa8894460ff6b34a5f, type: 3}
+        Color: {r: 0.8301887, g: 0.8301887, b: 0.8301887, a: 1}
+    - Key:
+        <Base>k__BackingField: 12
+        <Shade>k__BackingField: 1
+      Value:
+        Material: {fileID: 2100000, guid: 4adccbc3f6b0b441aba1afae6110edad, type: 2}
+        Sprite: {fileID: 0}
+        Color: {r: 0, g: 0, b: 0, a: 0}
+    - Key:
+        <Base>k__BackingField: 12
+        <Shade>k__BackingField: 2
+      Value:
+        Material: {fileID: 2100000, guid: 620c629939e9a48edad67e569c0f2760, type: 2}
+        Sprite: {fileID: 0}
+        Color: {r: 0, g: 0, b: 0, a: 0}
+    - Key:
+        <Base>k__BackingField: 13
+        <Shade>k__BackingField: 0
+      Value:
+        Material: {fileID: 2100000, guid: ecf0d6e1007124985b425e2b3b7f85ff, type: 2}
+        Sprite: {fileID: 21300000, guid: 782b53bc9fca84814b23a4d3e02536bb, type: 3}
+        Color: {r: 0.3301887, g: 0.3301887, b: 0.3301887, a: 1}
+    - Key:
+        <Base>k__BackingField: 13
+        <Shade>k__BackingField: 1
+      Value:
+        Material: {fileID: 2100000, guid: cea3f657d269c4f1eb9643f1ac8e96d7, type: 2}
+        Sprite: {fileID: 0}
+        Color: {r: 0, g: 0, b: 0, a: 0}
+    - Key:
+        <Base>k__BackingField: 13
+        <Shade>k__BackingField: 2
+      Value:
+        Material: {fileID: 2100000, guid: 471b4fdb6874c48debf70a03dbb4bb83, type: 2}
+        Sprite: {fileID: 0}
+        Color: {r: 0, g: 0, b: 0, a: 0}
+    keyCollision: 0

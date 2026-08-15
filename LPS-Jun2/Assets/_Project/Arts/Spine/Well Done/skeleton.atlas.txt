@@ -1,0 +1,22 @@
+skeleton.png
+size:640,397
+filter:Linear,Linear
+welldone/!
+bounds:516,215,101,180
+welldone/D
+bounds:333,26,156,182
+welldone/E
+bounds:206,210,154,185
+offsets:0,1,154,186
+welldone/E2
+bounds:362,213,152,182
+welldone/L
+bounds:491,27,147,184
+welldone/N
+bounds:2,2,163,185
+offsets:1,0,164,185
+welldone/O
+bounds:167,11,164,176
+welldone/W ONLY
+bounds:2,189,206,202
+rotate:90

@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4f4818529824443f9d658ac08cb44547, type: 3}
+  m_Name: Particles
+  m_EditorClassIdentifier: 
+  CarrierComplete: {fileID: 19877600, guid: 36bdc02b23d9ca94d93bd715c0cca5c0, type: 3}
+  CarrierIceBreak: {fileID: 930160556575823116, guid: 4036ecd08037a4470ba8757e0160d513, type: 3}
+  CarrierHiddenReveal: {fileID: 19879788, guid: 625165fb93553b14f8ed057807ed752a, type: 3}
+  CarrierSpawn: {fileID: 5331836332929670438, guid: a3bf3b0f1fb1fa7468d78e0ec7bf1d95, type: 3}
+  ConveyorTrail: {fileID: 19869376, guid: 7ca49a9676b39401f8dae9634a5fa95e, type: 3}

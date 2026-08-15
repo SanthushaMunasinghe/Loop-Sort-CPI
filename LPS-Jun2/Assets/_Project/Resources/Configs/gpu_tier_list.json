@@ -1,0 +1,701 @@
+[
+  {
+    "gpu": "Adreno 650",
+    "soc": "Snapdragon 870, 865 & 865+",
+    "family": "Adreno",
+    "tier": "A+"
+  },
+  {
+    "gpu": "Adreno 660",
+    "soc": "Snapdragon 888",
+    "family": "Adreno",
+    "tier": "A+"
+  },
+  {
+    "gpu": "Adreno 730",
+    "soc": "Snapdragon 8+ Gen 1",
+    "family": "Adreno",
+    "tier": "A+"
+  },
+  {
+    "gpu": "Adreno 740",
+    "soc": "Snapdragon 8 Gen 2",
+    "family": "Adreno",
+    "tier": "A+"
+  },
+  {
+    "gpu": "Adreno 750",
+    "soc": "Snapdragon 8 Gen 3",
+    "family": "Adreno",
+    "tier": "A+"
+  },
+  {
+    "gpu": "Adreno 830",
+    "soc": "Snapdragon 8 Elite",
+    "family": "Adreno",
+    "tier": "A+"
+  },
+  {
+    "gpu": "A13 Bionic’s GPU",
+    "soc": "Apple A13 Bionic",
+    "family": "Apple",
+    "tier": "A+"
+  },
+  {
+    "gpu": "A14 Bionic’s GPU",
+    "soc": "Apple A14 Bionic",
+    "family": "Apple",
+    "tier": "A+"
+  },
+  {
+    "gpu": "A15 Bionic’s GPU",
+    "soc": "Apple A15 Bionic",
+    "family": "Apple",
+    "tier": "A+"
+  },
+  {
+    "gpu": "A16 Bionic’s GPU",
+    "soc": "Apple A16 Bionic",
+    "family": "Apple",
+    "tier": "A+"
+  },
+  {
+    "gpu": "Apple A17 Pro GPU",
+    "soc": "Apple A17 Pro Bionic Chip",
+    "family": "Apple",
+    "tier": "A+"
+  },
+  {
+    "gpu": "Apple A18 GPU",
+    "soc": "Apple A18",
+    "family": "Apple",
+    "tier": "A+"
+  },
+  {
+    "gpu": "Apple A18 Pro GPU",
+    "soc": "Apple A18 Pro",
+    "family": "Apple",
+    "tier": "A+"
+  },
+  {
+    "gpu": "Immortalis G720",
+    "soc": "",
+    "family": "Immortalis",
+    "tier": "A+"
+  },
+  {
+    "gpu": "Immortalis-G715 MP11",
+    "soc": "Dimensity 9200",
+    "family": "Immortalis-G715",
+    "tier": "A+"
+  },
+  {
+    "gpu": "Immortalis-G925",
+    "soc": "",
+    "family": "Immortalis-G925",
+    "tier": "A+"
+  },
+  {
+    "gpu": "Mali-G710 MC10",
+    "soc": "Dimensity 9000+",
+    "family": "Mali-G710",
+    "tier": "A+"
+  },
+  {
+    "gpu": "Mali-G720 MP12",
+    "soc": "MediaTek Dimensity 9300 Plus",
+    "family": "Mali-G720",
+    "tier": "A+"
+  },
+  {
+    "gpu": "Mali-G78 MP20",
+    "soc": "Google Tensor",
+    "family": "Mali-G78",
+    "tier": "A+"
+  },
+  {
+    "gpu": "Mali-G78 MP22",
+    "soc": "Kirin 9000E",
+    "family": "Mali-G78",
+    "tier": "A+"
+  },
+  {
+    "gpu": "Mali-G78 MP24",
+    "soc": "Kirin 9000",
+    "family": "Mali-G78",
+    "tier": "A+"
+  },
+  {
+    "gpu": "Mali-G925 MP12",
+    "soc": "MediaTek Dimensity 9400",
+    "family": "Mali-G925",
+    "tier": "A+"
+  },
+  {
+    "gpu": "Xclipse 920",
+    "soc": "Exynos 2200",
+    "family": "Xclipse",
+    "tier": "A+"
+  },
+  {
+    "gpu": "Xclipse 940",
+    "soc": "Exynos 2400",
+    "family": "Xclipse",
+    "tier": "A+"
+  },
+  {
+    "gpu": "Adreno 540",
+    "soc": "Snapdragon 835",
+    "family": "Adreno",
+    "tier": "A"
+  },
+  {
+    "gpu": "Adreno 619",
+    "soc": "Snapdragon 750G, 480",
+    "family": "Adreno",
+    "tier": "A"
+  },
+  {
+    "gpu": "Adreno 619L*",
+    "soc": "Snapdragon 690",
+    "family": "Adreno",
+    "tier": "A"
+  },
+  {
+    "gpu": "Adreno 620",
+    "soc": "Snapdragon 765, 765G, and 768G",
+    "family": "Adreno",
+    "tier": "A"
+  },
+  {
+    "gpu": "Adreno 630",
+    "soc": "Snapdragon 845",
+    "family": "Adreno",
+    "tier": "A"
+  },
+  {
+    "gpu": "Adreno 640",
+    "soc": "Snapdragon 855 & 855+",
+    "family": "Adreno",
+    "tier": "A"
+  },
+  {
+    "gpu": "A11 Bionic’s GPU",
+    "soc": "Apple A11 Bionic",
+    "family": "Apple",
+    "tier": "A"
+  },
+  {
+    "gpu": "A12 Bionic’s GPU",
+    "soc": "Apple A12 Bionic",
+    "family": "Apple",
+    "tier": "A"
+  },
+  {
+    "gpu": "Mali G77 MP11",
+    "soc": "Exynos 990",
+    "family": "Mali",
+    "tier": "A"
+  },
+  {
+    "gpu": "Mali G77 MP5",
+    "soc": "Exynos 980",
+    "family": "Mali",
+    "tier": "A"
+  },
+  {
+    "gpu": "Mali G78 MP10",
+    "soc": "Exynos 1080",
+    "family": "Mali",
+    "tier": "A"
+  },
+  {
+    "gpu": "Mali-G52 MP6",
+    "soc": "Kirin 810",
+    "family": "Mali-G52",
+    "tier": "A"
+  },
+  {
+    "gpu": "Mali-G57 MC4",
+    "soc": "Dimensity 800",
+    "family": "Mali-G57",
+    "tier": "A"
+  },
+  {
+    "gpu": "Mali-G57 MC5",
+    "soc": "Dimensity 820 and 1000C",
+    "family": "Mali-G57",
+    "tier": "A"
+  },
+  {
+    "gpu": "Mali-G610 MC6",
+    "soc": "Dimensity 8100 Ultra",
+    "family": "Mali-G610",
+    "tier": "A"
+  },
+  {
+    "gpu": "Mali-G72 MP12",
+    "soc": "Kirin 970",
+    "family": "Mali-G72",
+    "tier": "A"
+  },
+  {
+    "gpu": "Mali-G72 MP18",
+    "soc": "Exynos 9810",
+    "family": "Mali-G72",
+    "tier": "A"
+  },
+  {
+    "gpu": "Mali-G76 3EEMC4",
+    "soc": "Helio G90, G90T, and G95",
+    "family": "Mali-G76",
+    "tier": "A"
+  },
+  {
+    "gpu": "Mali-G76 MP10",
+    "soc": "Kirin 980",
+    "family": "Mali-G76",
+    "tier": "A"
+  },
+  {
+    "gpu": "Mali-G76 MP12",
+    "soc": "Exynos 9820 & 9825",
+    "family": "Mali-G76",
+    "tier": "A"
+  },
+  {
+    "gpu": "Mali-G76 MP14",
+    "soc": "Kirin 990E 5G",
+    "family": "Mali-G76",
+    "tier": "A"
+  },
+  {
+    "gpu": "Mali-G76 MP16",
+    "soc": "Kirin 990",
+    "family": "Mali-G76",
+    "tier": "A"
+  },
+  {
+    "gpu": "Mali-G76 MP5",
+    "soc": "Exynos 880",
+    "family": "Mali-G76",
+    "tier": "A"
+  },
+  {
+    "gpu": "Mali-G77 MC7",
+    "soc": "MediaTek Dimensity 1000L",
+    "family": "Mali-G77",
+    "tier": "A"
+  },
+  {
+    "gpu": "Mali-G77 MC9",
+    "soc": "MediaTek Dimensity 1200, 1100, 1000+, & 1000",
+    "family": "Mali-G77",
+    "tier": "A"
+  },
+  {
+    "gpu": "Mali-G77 MP8",
+    "soc": "Kirin 985 5G",
+    "family": "Mali-G77",
+    "tier": "A"
+  },
+  {
+    "gpu": "Mali-G78 MP14",
+    "soc": "Exynos 2100",
+    "family": "Mali-G78",
+    "tier": "A"
+  },
+  {
+    "gpu": "Adreno 530",
+    "soc": "Snapdragon 820 & 821",
+    "family": "Adreno",
+    "tier": "B"
+  },
+  {
+    "gpu": "Adreno 610",
+    "soc": "Snapdragon 665 and 662",
+    "family": "Adreno",
+    "tier": "B"
+  },
+  {
+    "gpu": "Adreno 612",
+    "soc": "Snapdragon 675 and 678",
+    "family": "Adreno",
+    "tier": "B"
+  },
+  {
+    "gpu": "Adreno 615",
+    "soc": "Snapdragon 670",
+    "family": "Adreno",
+    "tier": "B"
+  },
+  {
+    "gpu": "Adreno 616",
+    "soc": "Snapdragon 710 & 712",
+    "family": "Adreno",
+    "tier": "B"
+  },
+  {
+    "gpu": "Adreno 618",
+    "soc": "Snapdragon 720G, 730, 730G, and 732G",
+    "family": "Adreno",
+    "tier": "B"
+  },
+  {
+    "gpu": "IMG PowerVR GM 9446",
+    "soc": "Helio P90 and P95",
+    "family": "IMG",
+    "tier": "B"
+  },
+  {
+    "gpu": "Mali-G52 MC2",
+    "soc": "Helio G70, G80, and G85",
+    "family": "Mali-G52",
+    "tier": "B"
+  },
+  {
+    "gpu": "Mali-G57 MC3",
+    "soc": "Dimensity 720 and 800U",
+    "family": "Mali-G57",
+    "tier": "B"
+  },
+  {
+    "gpu": "Mali-G71 MP20",
+    "soc": "Exynos 8895",
+    "family": "Mali-G71",
+    "tier": "B"
+  },
+  {
+    "gpu": "Mali-G71 MP8",
+    "soc": "Kirin 960",
+    "family": "Mali-G71",
+    "tier": "B"
+  },
+  {
+    "gpu": "Mali-T880 MP12",
+    "soc": "Exynos 8890",
+    "family": "Mali-T880",
+    "tier": "B"
+  },
+  {
+    "gpu": "PowerVR 7XT GT7600",
+    "soc": "Apple A9",
+    "family": "Powervr",
+    "tier": "B"
+  },
+  {
+    "gpu": "PowerVR 7XT GT7600 Plus",
+    "soc": "Apple A10 Fusion",
+    "family": "Powervr",
+    "tier": "B"
+  },
+  {
+    "gpu": "PowerVR 7XTP-MT4",
+    "soc": "Helio X30",
+    "family": "Powervr",
+    "tier": "B"
+  },
+  {
+    "gpu": "Adreno 418",
+    "soc": "Snapdragon 808",
+    "family": "Adreno",
+    "tier": "C"
+  },
+  {
+    "gpu": "Adreno 420",
+    "soc": "Snapdragon 805",
+    "family": "Adreno",
+    "tier": "C"
+  },
+  {
+    "gpu": "Adreno 430",
+    "soc": "Snapdragon 810",
+    "family": "Adreno",
+    "tier": "C"
+  },
+  {
+    "gpu": "Adreno 508",
+    "soc": "Snapdragon 630",
+    "family": "Adreno",
+    "tier": "C"
+  },
+  {
+    "gpu": "Adreno 509",
+    "soc": "Snapdragon 636",
+    "family": "Adreno",
+    "tier": "C"
+  },
+  {
+    "gpu": "Adreno 510",
+    "soc": "Snapdragon 650, 652 & 653",
+    "family": "Adreno",
+    "tier": "C"
+  },
+  {
+    "gpu": "Adreno 512",
+    "soc": "Snapdragon 660",
+    "family": "Adreno",
+    "tier": "C"
+  },
+  {
+    "gpu": "Mali-G51 MP4",
+    "soc": "Kirin 710",
+    "family": "Mali-G51",
+    "tier": "C"
+  },
+  {
+    "gpu": "Mali-G52 MP1",
+    "soc": "Exynos 850",
+    "family": "Mali-G52",
+    "tier": "C"
+  },
+  {
+    "gpu": "Mali-G71 MP1",
+    "soc": "Exynos 7872",
+    "family": "Mali-G71",
+    "tier": "C"
+  },
+  {
+    "gpu": "Mali-G71 MP2",
+    "soc": "Exynos 7885, 7884, 7884A, 7904, Helio P30 & P23",
+    "family": "Mali-G71",
+    "tier": "C"
+  },
+  {
+    "gpu": "Mali-G72 MP3",
+    "soc": "Exynos 9611, 9610, Helio P70 & P60",
+    "family": "Mali-G72",
+    "tier": "C"
+  },
+  {
+    "gpu": "Mali-T760 MP8",
+    "soc": "Exynos 7420",
+    "family": "Mali-T760",
+    "tier": "C"
+  },
+  {
+    "gpu": "Mali-T830 MP3",
+    "soc": "Exynos 7880",
+    "family": "Mali-T830",
+    "tier": "C"
+  },
+  {
+    "gpu": "Mali-T860 MP4",
+    "soc": "Xiaomi Surge S1",
+    "family": "Mali-T860",
+    "tier": "C"
+  },
+  {
+    "gpu": "Mali-T880 MP2",
+    "soc": "Helio P25, P20",
+    "family": "Mali-T880",
+    "tier": "C"
+  },
+  {
+    "gpu": "Mali-T880 MP4",
+    "soc": "Helio X27, X25, X23, X20, Kirin 955 & 950",
+    "family": "Mali-T880",
+    "tier": "C"
+  },
+  {
+    "gpu": "PowerVR GX6450",
+    "soc": "Apple A8",
+    "family": "Powervr",
+    "tier": "C"
+  },
+  {
+    "gpu": "Adreno 306",
+    "soc": "Snapdragon 412 & 410",
+    "family": "Adreno",
+    "tier": "D"
+  },
+  {
+    "gpu": "Adreno 308",
+    "soc": "Snapdragon 427, 425 and Qualcomm 215",
+    "family": "Adreno",
+    "tier": "D"
+  },
+  {
+    "gpu": "Adreno 405",
+    "soc": "Snapdragon 617, 616, 615, 610, & 415",
+    "family": "Adreno",
+    "tier": "D"
+  },
+  {
+    "gpu": "Adreno 504",
+    "soc": "Snapdragon 429",
+    "family": "Adreno",
+    "tier": "D"
+  },
+  {
+    "gpu": "Adreno 505",
+    "soc": "Snapdragon 439, 435, & 430",
+    "family": "Adreno",
+    "tier": "D"
+  },
+  {
+    "gpu": "Adreno 506",
+    "soc": "Snapdragon 632, 626, 625, & 450",
+    "family": "Adreno",
+    "tier": "D"
+  },
+  {
+    "gpu": "Mali-450 MP4",
+    "soc": "Kirin 620",
+    "family": "Mali-450",
+    "tier": "D"
+  },
+  {
+    "gpu": "Mali-T604 MP4",
+    "soc": "Exynos 5250",
+    "family": "Mali-T604",
+    "tier": "D"
+  },
+  {
+    "gpu": "Mali-T628 MP4",
+    "soc": "Kirin 935 & 930",
+    "family": "Mali-T628",
+    "tier": "D"
+  },
+  {
+    "gpu": "Mali-T628 MP6",
+    "soc": "Exynos 5420, 5422, 5430, & 5800",
+    "family": "Mali-T628",
+    "tier": "D"
+  },
+  {
+    "gpu": "Mali-T720 MP1",
+    "soc": "Exynos 7570",
+    "family": "Mali-T720",
+    "tier": "D"
+  },
+  {
+    "gpu": "Mali-T720 MP2",
+    "soc": "Exynos 7580, MT6753, MT6737T, MT6737, & MT6735",
+    "family": "Mali-T720",
+    "tier": "D"
+  },
+  {
+    "gpu": "Mali-T760 MP2",
+    "soc": "MT6752",
+    "family": "Mali-T760",
+    "tier": "D"
+  },
+  {
+    "gpu": "Mali-T760 MP4",
+    "soc": "Rockchip RK3288",
+    "family": "Mali-T760",
+    "tier": "D"
+  },
+  {
+    "gpu": "Mali-T760 MP6",
+    "soc": "Exynos 5433",
+    "family": "Mali-T760",
+    "tier": "D"
+  },
+  {
+    "gpu": "Mali-T830 MP1",
+    "soc": "Exynos 7870",
+    "family": "Mali-T830",
+    "tier": "D"
+  },
+  {
+    "gpu": "Mali-T830 MP2",
+    "soc": "Kirin 659, 658, 655, & 650",
+    "family": "Mali-T830",
+    "tier": "D"
+  },
+  {
+    "gpu": "Mali-T860 MP2",
+    "soc": "Helio P10, P18, MT6738, MT6750T, & MT6750",
+    "family": "Mali-T860",
+    "tier": "D"
+  },
+  {
+    "gpu": "PowerVR G6200",
+    "soc": "Helio X10 & MT8135",
+    "family": "Powervr",
+    "tier": "D"
+  },
+  {
+    "gpu": "PowerVR G6430",
+    "soc": "Apple A7",
+    "family": "Powervr",
+    "tier": "D"
+  },
+  {
+    "gpu": "PowerVR GE8100",
+    "soc": "MT6739",
+    "family": "Powervr",
+    "tier": "D"
+  },
+  {
+    "gpu": "PowerVR GE8320",
+    "soc": "Helio P22, A22, G35, G25, and A25",
+    "family": "Powervr",
+    "tier": "D"
+  },
+  {
+    "gpu": "Adreno 760",
+    "soc": "Snapdragon 8 Gen 4",
+    "family": "Adreno",
+    "tier": "A+",
+    "id": 107
+  },
+  {
+    "gpu": "Adreno 810",
+    "soc": "Snapdragon 7s Gen 3",
+    "family": "Adreno",
+    "tier": "B",
+    "id": 108
+  },
+  {
+    "gpu": "Adreno 825",
+    "soc": "Snapdragon 8s Gen 4",
+    "family": "Adreno",
+    "tier": "A+",
+    "id": 109
+  },
+  {
+    "gpu": "Xclipse 950",
+    "soc": "Exynos 2500",
+    "family": "Xclipse",
+    "tier": "A+",
+    "id": 110
+  },
+  {
+    "gpu": "Immortalis-G925 MC16",
+    "soc": "Dimensity 9400",
+    "family": "Immortalis-G925",
+    "tier": "A+",
+    "id": 111
+  },
+  {
+    "gpu": "Immortalis-G925 MC12",
+    "soc": "Dimensity 9400",
+    "family": "Immortalis-G925",
+    "tier": "A+",
+    "id": 112
+  },
+  {
+    "gpu": "PowerVR IMG DXT-48-1536",
+    "soc": "Tensor G5",
+    "family": "Powervr",
+    "tier": "B",
+    "id": 113
+  },
+  {
+    "gpu": "Apple A19 GPU",
+    "soc": "Apple A19",
+    "family": "Apple",
+    "tier": "A+",
+    "id": 114
+  },
+  {
+    "gpu": "Apple A19 Pro GPU",
+    "soc": "Apple A19 Pro",
+    "family": "Apple",
+    "tier": "A+",
+    "id": 115
+  }
+]

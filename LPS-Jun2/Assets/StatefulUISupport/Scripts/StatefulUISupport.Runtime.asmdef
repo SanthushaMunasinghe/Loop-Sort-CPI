@@ -1,0 +1,6 @@
+{
+  "name": "StatefulUISupport.Runtime",
+  "references": [
+    "StatefulUI.Runtime"
+  ]
+}

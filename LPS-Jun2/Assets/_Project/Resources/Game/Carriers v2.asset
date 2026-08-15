@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2307643335cc4924ac5c87b30b2709df, type: 3}
+  m_Name: Carriers v2
+  m_EditorClassIdentifier: 
+  Collection:
+    list:
+    - Key: 0
+      Value:
+        Prefab: {fileID: 5858418803137089460, guid: 9c226d200f3de4ecc98ce5928159dad5, type: 3}
+    - Key: 1
+      Value:
+        Prefab: {fileID: 7023600610799393152, guid: 583ed84647c15429fbf4991459eb1a9c, type: 3}
+    - Key: 2
+      Value:
+        Prefab: {fileID: 7750868542408412883, guid: 7745b2873a89447d6955d7bb2752cec5, type: 3}
+    - Key: 4
+      Value:
+        Prefab: {fileID: 204596187400218410, guid: 7334146c6af6f41babf8b4228d92f9ec, type: 3}
+    - Key: 24
+      Value:
+        Prefab: {fileID: 2693928868571524626, guid: db4250aa85dc948fcba758634472a5af, type: 3}
+    - Key: 27
+      Value:
+        Prefab: {fileID: 731352583118050655, guid: 6007041f365b24ea6a79b619d344b374, type: 3}
+    keyCollision: 0

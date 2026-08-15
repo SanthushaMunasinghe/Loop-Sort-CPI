@@ -1,0 +1,37 @@
+skeleton.png
+size:1600,1612
+filter:Linear,Linear
+giftbox/Gift Box - Bottom Blue
+bounds:2,2,768,694
+offsets:127,165,1024,1024
+giftbox/Gift Box - Bottom Cyan
+bounds:772,2,768,694
+offsets:127,165,1024,1024
+giftbox/Gift Box - Bottom Red
+bounds:830,916,768,694
+offsets:127,165,1024,1024
+giftbox/Gift Box - White
+bounds:2,698,826,912
+offsets:109,57,1024,1024
+
+skeleton_2.png
+size:1814,1330
+filter:Linear,Linear
+giftbox/Gift Box - Bottom
+bounds:2,560,768,694
+offsets:127,165,1024,1024
+rotate:90
+giftbox/Gift Box - Top
+bounds:1256,575,753,556
+offsets:136,234,1024,1024
+rotate:90
+giftbox/Gift Box - Top Blue
+bounds:2,2,753,556
+offsets:136,234,1024,1024
+giftbox/Gift Box - Top Cyan
+bounds:698,575,753,556
+offsets:136,234,1024,1024
+rotate:90
+giftbox/Gift Box - Top Red
+bounds:757,17,753,556
+offsets:136,234,1024,1024

@@ -1,0 +1,604 @@
+using System;
+using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
+using Lean.Touch;
+using MessagePipe;
+using Scellecs.Morpeh;
+using StatefulUI.Runtime.Core;
+using StatefulUISupport.Scripts.Components;
+using UnityEngine;
+using VContainer;
+
+public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBlockContainer
+{
+    [field: SerializeField] public GameObject ModelParent { get; private set; }
+    [field: SerializeField] public Transform BlockParent { get; private set; }
+    [field: SerializeField] public Transform FrontPoint { get; private set; }
+    [field: SerializeField] public Renderer HeadRenderer { get; private set; }
+    [field: SerializeField] public SkinnedMeshRenderer BackTopRenderer { get; private set; }
+    [field: SerializeField] public SkinnedMeshRenderer BackRearRenderer { get; private set; }
+    [field: SerializeField] public StatefulComponent View { get; private set; }
+    [field: SerializeField] public GameObject Highlight { get; private set; }
+    [field: SerializeField] public Transform LeftTire { get; private set; }
+    [field: SerializeField] public Transform RightTire { get; private set; }
+    [field: SerializeField] public Transform TransferProjectPoint { get; private set; }
+    [field: SerializeField] public Transform Pivot { get; private set; }
+
+    [field: Header("Group Blocks")]
+    [field: SerializeField] public List<MeshRenderer> GroupBlocks { get; private set; }
+    [field: SerializeField] public List<MeshFilter> GroupBlockFilters { get; private set; }
+
+    public CarrierSheet.CarrierType Type { get; private set; }
+
+    [Inject] private CarrierConfig _config;
+    [Inject] private AudioModule _audioModule;
+    [Inject] private HapticModule _hapticModule;
+    [Inject] private BlockConfig _blockConfig;
+    [Inject] private Particles _particles;
+    [Inject] private Conveyor _conveyor;
+    [Inject] private RemoteConfigModule _remoteConfigModule;
+    [Inject] private CarrierConfig _carrierConfig;
+
+    [Inject] private IPublisher<CarrierSelectMessage> _carrierSelectPub;
+    [Inject] private IPublisher<CarrierCompleteMessage> _carrierCompletePub;
+    [Inject] private IPublisher<CarrierAddBlockMessage> _carrierAddBlockPub;
+    [Inject] private IPublisher<CarrierRemoveBlockMessage> _carrierRemoveBlockPub;
+    [Inject] private IPublisher<CarrierInteractUpdateMessage> _carrierInteractUpdatePub;
+    [Inject] private IPublisher<BlockCarrierMeshUpdateMessage> _blockCarrierMeshUpdatePub;
+
+    private Material _originalMaterial;
+    private BlockPhysicsConfig _blockPhysicsConfig;
+    private SoundConfig _soundConfig;
+
+    private bool _isTransferring;
+    private bool _isComplete;
+    private bool _isInteractionLocked;
+    private bool _isTransferLocked;
+    private bool _isGroupBlockDisabled;
+    private bool _isTransferMotionDisabled;
+    private int _addingBlockCount;
+    private int _customMaxBlockCount;
+    private Vector3? _originalPosition;
+
+    private Stash<BlockPhysicsActive> _blockPhysicsActives;
+
+    private readonly List<Block> _blocks = new();
+    private readonly Dictionary<Block, int> _idxByBlock = new();
+    private readonly List<IBlockTransferHandler> _transferHandlers = new();
+    private readonly HashSet<GameObject> _interactionBlockers = new();
+    private readonly HashSet<GameObject> _transferBlockers = new();
+
+    protected override void Awake()
+    {
+        base.Awake();
+
+        _originalMaterial = HeadRenderer.sharedMaterials[0];
+        GetComponentsInChildren(_transferHandlers);
+    }
+
+    public override void OnRent()
+    {
+        base.OnRent();
+
+        RegisterView<Carrier>();
+        InjectMaterial(_originalMaterial);
+        ApplyOpenBackMotion(immediate: true);
+        View.GetImage(ImageRole.Checkmark).gameObject.SetActive(false);
+
+        foreach (var groupBlock in GroupBlocks)
+            groupBlock.gameObject.SetActive(false);
+
+        Highlight.SetActive(false);
+
+        _blockPhysicsActives = World.GetStash<BlockPhysicsActive>();
+
+        _blockPhysicsConfig = _remoteConfigModule.GetDataClassNew<BlockPhysicsConfig>();
+        _soundConfig = _remoteConfigModule.GetDataClassNew<SoundConfig>();
+    }
+
+    public override void OnReturn()
+    {
+        base.OnReturn();
+
+        _blocks.Clear();
+        _idxByBlock.Clear();
+        _isTransferring = false;
+        _isComplete = false;
+        _isInteractionLocked = false;
+        _interactionBlockers.Clear();
+        _isTransferLocked = false;
+        _transferBlockers.Clear();
+        _isGroupBlockDisabled = false;
+        _isTransferMotionDisabled = false;
+        _addingBlockCount = 0;
+        _customMaxBlockCount = 0;
+        _originalPosition = null;
+    }
+
+    public void Interact(LeanFinger finger, RaycastHit hitInfo)
+    {
+        if (_isInteractionLocked)
+            return;
+
+        _carrierSelectPub.Publish(new CarrierSelectMessage
+        {
+            Carrier = this
+        });
+    }
+
+    public void SetType(CarrierSheet.CarrierType carrierType)
+    {
+        Type = carrierType;
+    }
+
+    public async UniTask AddBlock(Block block, float delay = 0f, bool motion = true)
+    {
+        block.SetContainer(this);
+
+        block.Rigidbody.isKinematic = true;
+        block.Rigidbody.detectCollisions = false;
+        block.Collider.enabled = false;
+
+        _addingBlockCount++;
+
+        var index = _blocks.Count;
+        _blocks.Add(block);
+        _idxByBlock[block] = index;
+        var coordinate = GetBlockCoordinate(index);
+
+        if (_blockPhysicsActives.Has(block)) _blockPhysicsActives.Remove(block);
+
+        if (CanComplete()) SetComplete();
+
+        var blockT = block.transform;
+        blockT.parent = null;
+        if (motion) await UniTask.Delay(TimeSpan.FromSeconds(delay), cancellationToken: SceneLoadToken);
+        blockT.parent = BlockParent;
+
+        if (motion)
+        {
+            if (_soundConfig.Stack)
+            {
+                _audioModule.GetPlayer()
+                    .WithPitch(.85f)
+                    .WithPitchIncrease(.01f, .5f)
+                    .WithCooldown(.06f)
+                    .WithVolumeScale(.5f)
+                    .WithMaxPitch(1.2f)
+                    .Play(_audioModule.Sounds.AddBlock);
+            }
+            else if (_soundConfig.Stackv2)
+            {
+                _audioModule.GetPlayer()
+                    .WithPitch(.6f)
+                    .WithPitchIncrease(.02f, 1f)
+                    .WithCooldown(.06f)
+                    .WithVolumeScale(.5f)
+                    .WithMaxPitch(1.4f)
+                    .Play(_audioModule.Sounds.AddBlock);
+            }
+
+            _hapticModule.PlaySoft();
+        }
+
+        var targetPosition = CoordinateToLocalPosition(coordinate);
+        var targetRotation = Quaternion.identity;
+
+        var configSize = _carrierConfig.Sizes[_blockPhysicsConfig.Type];
+        blockT.localScale = Vector3.one * configSize.ScaleMultiplier;
+
+        block.MeshFilter.sharedMesh = _blockConfig.BeveledMesh;
+        if (motion)
+        {
+            await block.ApplyMoveToCarrierMotion(targetPosition, targetRotation);
+            ApplyAddBlockMotion();
+        }
+        else
+        {
+            blockT.localPosition = targetPosition;
+            blockT.localRotation = Quaternion.identity;
+        }
+
+        _addingBlockCount--;
+
+        block.CompleteContainer();
+
+        _carrierAddBlockPub.Publish(new CarrierAddBlockMessage
+        {
+            Carrier = this,
+            Block = block,
+        });
+    }
+
+    public void RemoveBlock(Block block)
+    {
+        block.ClearContainer();
+        _blocks.Remove(block);
+        _idxByBlock.Remove(block);
+
+        _carrierRemoveBlockPub.Publish(new CarrierRemoveBlockMessage
+        {
+            Carrier = this,
+            Block = block,
+        });
+    }
+
+    public List<Block> GetBlocks()
+    {
+        return _blocks;
+    }
+
+    public int GetBlockIdx(Block block)
+    {
+        return _idxByBlock[block];
+    }
+
+    private void SetComplete()
+    {
+        if (_isComplete) return;
+        _isComplete = true;
+
+        // var colorType = GetCompleteColorType();
+        // InjectColorType(colorType);
+
+        SetCompleteTransferDelay();
+
+        _carrierCompletePub.Publish(new CarrierCompleteMessage
+        {
+            Carrier = this
+        });
+    }
+
+    private async UniTaskVoid SetCompleteTransferDelay()
+    {
+        while (IsTransferringOrAddingBlocks())
+            await UniTask.Yield(cancellationToken: SceneLoadToken);
+
+        ApplyCheckmarkMotion();
+        ApplyCloseBackMotion();
+
+        var carrierCompleteSound = _soundConfig.Stack
+            ? _audioModule.Sounds.CarrierCompleteAb
+            : _audioModule.Sounds.CarrierComplete;
+        _audioModule.GetPlayer().Play(carrierCompleteSound);
+
+        var checkmark = View.GetImage(ImageRole.Checkmark);
+        PrefabModule.Rent(_particles.CarrierComplete, checkmark.transform.position, Quaternion.identity);
+    }
+
+    public void EnableInteraction(GameObject source)
+    {
+        _interactionBlockers.Remove(source);
+        if (_interactionBlockers.Count > 0) return;
+        _isInteractionLocked = false;
+        _carrierInteractUpdatePub.Publish(new CarrierInteractUpdateMessage
+        {
+            Carrier = this,
+            CanInteract = CanInteract(),
+        });
+    }
+
+    public void DisableInteraction(GameObject source)
+    {
+        _interactionBlockers.Add(source);
+        _isInteractionLocked = true;
+        _carrierInteractUpdatePub.Publish(new CarrierInteractUpdateMessage
+        {
+            Carrier = this,
+            CanInteract = CanInteract(),
+        });
+    }
+
+    public void EnableTransfer(GameObject source)
+    {
+        _transferBlockers.Remove(source);
+        if (_transferBlockers.Count > 0) return;
+        _isTransferLocked = false;
+    }
+
+    public void DisableTransfer(GameObject source)
+    {
+        _transferBlockers.Add(source);
+        _isTransferLocked = true;
+    }
+
+    public void BeginTransfer()
+    {
+        _isTransferring = true;
+        ApplyBeginTransferMotion();
+    }
+
+    public void EndTransfer()
+    {
+        _isTransferring = false;
+        ApplyEndTransferMotion();
+    }
+
+    private int CoordinateToIndex(Vector3Int coordinate)
+    {
+        var x = coordinate.y % 2 == 0 ? coordinate.x : _conveyor.BlockSize.x - 1 - coordinate.x;
+        var y = coordinate.y * _conveyor.BlockSize.x;
+        var z = coordinate.z * _conveyor.BlockSize.x * _conveyor.BlockSize.y;
+        return x + y + z;
+    }
+
+    public Vector3Int GetBlockCoordinate(int index)
+    {
+        var coordinate = Vector3Int.zero;
+        var idx = index % (_conveyor.BlockSize.x * _conveyor.BlockSize.y);
+        coordinate.x = idx % _conveyor.BlockSize.x;
+        coordinate.y = idx / _conveyor.BlockSize.x;
+        coordinate.z = index / (_conveyor.BlockSize.x * _conveyor.BlockSize.y);
+
+        if (coordinate.y % 2 != 0)
+            coordinate.x = _conveyor.BlockSize.x - 1 - idx % _conveyor.BlockSize.x;
+
+        return coordinate;
+    }
+
+    public Vector3Int GetBlockCoordinate(Block block)
+    {
+        var idx = GetBlockIdx(block);
+        return GetBlockCoordinate(idx);
+    }
+
+    public Vector3 CoordinateToLocalPosition(Vector3Int coordinate)
+    {
+        var configSize = _config.Sizes[_blockPhysicsConfig.Type];
+        var size = configSize.ContainerSize;
+        var x = Mathf.Lerp(0f, size.x, coordinate.x / (float)(_conveyor.BlockSize.x - 1));
+        var y = Mathf.Lerp(0f, size.y, coordinate.y / (float)(_conveyor.BlockSize.y - 1));
+        var z = Mathf.Lerp(0f, size.z, coordinate.z / (float)(_conveyor.BlockSize.z - 1));
+        x = float.IsNaN(x) ? 0f : x;
+        y = float.IsNaN(y) ? 0f : y;
+        z = float.IsNaN(z) ? 0f : z;
+        var offset = configSize.ContainerOffset;
+        x += offset.x;
+        y += offset.y;
+        z += offset.z;
+        return new Vector3(x, y, z);
+    }
+
+    public bool IsBlockExists(Vector3Int coordinate)
+    {
+        if (coordinate.x < 0 || coordinate.x >= _conveyor.BlockSize.x) return false;
+        if (coordinate.y < 0 || coordinate.y >= _conveyor.BlockSize.y) return false;
+        if (coordinate.z < 0 || coordinate.z >= _conveyor.BlockSize.z) return false;
+        var idx = CoordinateToIndex(coordinate);
+        return idx >= 0 && idx < _blocks.Count;
+    }
+
+    public Block GetBlockAt(Vector3Int coordinate)
+    {
+        var idx = CoordinateToIndex(coordinate);
+        if (idx < 0 || idx >= _blocks.Count) return null;
+        return _blocks[idx];
+    }
+
+    public void GetNeighborBlocks(Vector3Int coordinate, List<Block> neighbors)
+    {
+        var up = GetBlockAt(coordinate + Vector3Int.up);
+        if (up != null) neighbors.Add(up);
+        var down = GetBlockAt(coordinate + Vector3Int.down);
+        if (down != null) neighbors.Add(down);
+        var front = GetBlockAt(coordinate + Vector3Int.forward);
+        if (front != null) neighbors.Add(front);
+        var back = GetBlockAt(coordinate + Vector3Int.back);
+        if (back != null) neighbors.Add(back);
+        var right = GetBlockAt(coordinate + Vector3Int.right);
+        if (right != null) neighbors.Add(right);
+        var left = GetBlockAt(coordinate + Vector3Int.left);
+        if (left != null) neighbors.Add(left);
+    }
+
+    public void GetBlocksInLayer(int z, List<Block> blocks)
+    {
+        if (z < 0 || z >= _conveyor.BlockSize.z) return;
+        for (var x = 0; x < _conveyor.BlockSize.x; x++)
+        for (var y = 0; y < _conveyor.BlockSize.y; y++)
+        {
+            var coordinate = new Vector3Int(x, y, z);
+            var block = GetBlockAt(coordinate);
+            if (block != null) blocks.Add(block);
+        }
+    }
+
+    public void SetCustomMaxBlockCount(int count)
+    {
+        _customMaxBlockCount = count;
+    }
+
+    public bool IsFull()
+    {
+        var maxBlockCount = GetMaxBlockCount();
+        return _blocks.Count >= maxBlockCount;
+    }
+
+    public bool HasReachedCompleteCount()
+    {
+        var maxBlockCount = _conveyor.MaxBlockCount;
+        return _blocks.Count >= maxBlockCount;
+    }
+
+    public bool IsEmpty()
+    {
+        return _blocks.Count == 0;
+    }
+
+    public int GetMaxBlockCount()
+    {
+        return _customMaxBlockCount > 0 ? _customMaxBlockCount : _conveyor.MaxBlockCount;
+    }
+
+    public int GetAvailableSpaceCount()
+    {
+        var maxBlockCount = GetMaxBlockCount();
+        return maxBlockCount - _blocks.Count;
+    }
+
+    public ColorType GetNextColorType()
+    {
+        if (IsEmpty()) return new ColorType(BaseColor.None);
+        var nextBlock = _blocks[^1];
+        return nextBlock.ColorType;
+    }
+
+    public ColorType GetCompleteColorType()
+    {
+        return GetNextColorType();
+    }
+
+    public void FindBlocksWithSameColor(ICollection<Block> blocks)
+    {
+        var nextColorType = GetNextColorType();
+        for (var i = _blocks.Count - 1; i >= 0; i--)
+        {
+            var block = _blocks[i];
+            if (block.ColorType != nextColorType) break;
+            blocks.Add(block);
+        }
+    }
+
+    public void FindNextTransferBlocks(ICollection<Block> blocks)
+    {
+        var nextColorType = GetNextColorType();
+        for (var i = _blocks.Count - 1; i >= 0; i--)
+        {
+            var block = _blocks[i];
+            if (!block.CanBeginTransfer()) break;
+            if (block.ColorType != nextColorType) break;
+            blocks.Add(block);
+            if (blocks.Count >= GetMaxBlockCount()) break;
+        }
+    }
+
+    public Block GetNextFirstBlock()
+    {
+        return _blocks.Count > 0 ? _blocks[^1] : null;
+    }
+
+    public bool AreAllBlocksSameColor()
+    {
+        var nextColorType = GetNextColorType();
+        foreach (var block in _blocks)
+            if (block.ColorType != nextColorType)
+                return false;
+
+        return true;
+    }
+
+    public bool CanComplete()
+    {
+        return HasReachedCompleteCount() && AreAllBlocksSameColor();
+    }
+
+    public bool CanTransferBlock(Block block)
+    {
+        if (_transferHandlers.Count == 0) return true;
+        foreach (var handler in _transferHandlers)
+            if (!handler.CanTransferBlock(block))
+                return false;
+        return true;
+    }
+
+    public bool IsBetterCarrier(Block block)
+    {
+        if (_transferHandlers.Count == 0) return false;
+        foreach (var handler in _transferHandlers)
+            if (!handler.IsBetterCarrier(block))
+                return false;
+        return true;
+    }
+
+    public bool CanBeginTransfer()
+    {
+        return !_isTransferLocked;
+    }
+
+    public bool IsTransferringOrAddingBlocks()
+    {
+        return _isTransferring || _addingBlockCount > 0;
+    }
+
+    public bool IsTransferring()
+    {
+        return _isTransferring;
+    }
+
+    public bool CanInteract()
+    {
+        return !_isInteractionLocked;
+    }
+
+    public bool IsComplete()
+    {
+        return _isComplete;
+    }
+
+    public MeshRenderer GetGroupBlockOf(Block block)
+    {
+        var blockIdx = GetBlockIdx(block);
+        var groupBlockIdx = blockIdx / _conveyor.GroupBlockCount;
+        return GroupBlocks[groupBlockIdx];
+    }
+
+    public void DisableGroupBlock()
+    {
+        _isGroupBlockDisabled = true;
+        _blockCarrierMeshUpdatePub.Publish(new BlockCarrierMeshUpdateMessage { Carrier = this });
+    }
+
+    public void EnableGroupBlock()
+    {
+        _isGroupBlockDisabled = false;
+        _blockCarrierMeshUpdatePub.Publish(new BlockCarrierMeshUpdateMessage { Carrier = this });
+    }
+
+    public void RefreshGroupBlock()
+    {
+        _blockCarrierMeshUpdatePub.Publish(new BlockCarrierMeshUpdateMessage { Carrier = this });
+    }
+
+    public bool IsGroupBlockEnabled()
+    {
+        return !_isGroupBlockDisabled;
+    }
+
+    public void EnableTransferMotion()
+    {
+        _isTransferMotionDisabled = false;
+    }
+
+    public void DisableTransferMotion()
+    {
+        _isTransferMotionDisabled = true;
+    }
+}
+
+public struct CarrierSelectMessage
+{
+    public Carrier Carrier;
+}
+
+public struct CarrierCompleteMessage
+{
+    public Carrier Carrier;
+}
+
+public struct CarrierAddBlockMessage
+{
+    public Carrier Carrier;
+    public Block Block;
+}
+
+public struct CarrierRemoveBlockMessage
+{
+    public Carrier Carrier;
+    public Block Block;
+}
+
+public struct CarrierInteractUpdateMessage
+{
+    public Carrier Carrier;
+    public bool CanInteract;
+}

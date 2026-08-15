@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8df748a318154145ad4cd23a18763643, type: 3}
+  m_Name: Sounds
+  m_EditorClassIdentifier: 
+  Click: {fileID: 8300000, guid: 78597cd8d07b44a69faf3faef929a3e4, type: 3}
+  Lose: {fileID: 8300000, guid: b1242cc48c89341638f9fb0a5b94ee0a, type: 3}
+  Win: {fileID: 8300000, guid: 70058c5b8ba9a4e54a937b249c87e229, type: 3}
+  WinText: {fileID: 8300000, guid: 7c939bb06249f47eb9d7ff9ee493515c, type: 3}
+  WinReward: {fileID: 8300000, guid: 92a0880acccf345d4baa199eed056722, type: 3}
+  Confetti: {fileID: 8300000, guid: 40cd7f03e10c041d28f9b2f3b0eb5190, type: 3}
+  Coin: {fileID: 8300000, guid: 6ca2863fdcdc2490b8d76d7ade622f98, type: 3}
+  GiftUnlock: {fileID: 8300000, guid: faecde7542dbd4e3f99a993467affda0, type: 3}
+  BoosterSelect: {fileID: 8300000, guid: 17b54b9bfa710495a95705c3540a3f2f, type: 3}
+  MainMenuMusic: {fileID: 8300000, guid: ea608a05e862d4dd19b87d1b533ec361, type: 3}
+  PlayingMusic: {fileID: 8300000, guid: 6bda9750232bc401584f1d954ed2b4cc, type: 3}
+  HardLevelMusic: {fileID: 8300000, guid: 51248b27d102d462eab1d409cb5d95e8, type: 3}
+  Fabulous: {fileID: 8300000, guid: 14b6d7e87445f48058fa4b579c440c3a, type: 3}
+  Perfect: {fileID: 8300000, guid: bd7350bc10fe84b2da821890b0446ce2, type: 3}
+  Great: {fileID: 8300000, guid: ad9cec7d1efce412497cde442e4a07b7, type: 3}
+  Good: {fileID: 8300000, guid: c270973a88ff7445893539184715f508, type: 3}
+  AddBlock: {fileID: 8300000, guid: 50afe46bb3b9544288f15fb15d93665f, type: 3}
+  CarrierTransfer: {fileID: 8300000, guid: eab4b5ae08cb044c3aa80d71ea928120, type: 3}
+  CarrierComplete: {fileID: 8300000, guid: 329b55845bb7d49378634786b8371216, type: 3}
+  CarrierTransferAb: {fileID: 8300000, guid: 4c5c687541c7a49c0896f55fcd86054b, type: 3}
+  CarrierCompleteAb: {fileID: 8300000, guid: 67244274166d34177a3a25a3ab5b0d1e, type: 3}

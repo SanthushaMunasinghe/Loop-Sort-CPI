@@ -1,0 +1,158 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1001 &639522208935511277
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 1800921142673012022, guid: 873bdd7a45f2845a3b6b3b611bd25d78, type: 3}
+      propertyPath: m_Pivot.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1800921142673012022, guid: 873bdd7a45f2845a3b6b3b611bd25d78, type: 3}
+      propertyPath: m_Pivot.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1800921142673012022, guid: 873bdd7a45f2845a3b6b3b611bd25d78, type: 3}
+      propertyPath: m_AnchorMax.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1800921142673012022, guid: 873bdd7a45f2845a3b6b3b611bd25d78, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1800921142673012022, guid: 873bdd7a45f2845a3b6b3b611bd25d78, type: 3}
+      propertyPath: m_AnchorMin.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1800921142673012022, guid: 873bdd7a45f2845a3b6b3b611bd25d78, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1800921142673012022, guid: 873bdd7a45f2845a3b6b3b611bd25d78, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1800921142673012022, guid: 873bdd7a45f2845a3b6b3b611bd25d78, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1800921142673012022, guid: 873bdd7a45f2845a3b6b3b611bd25d78, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1800921142673012022, guid: 873bdd7a45f2845a3b6b3b611bd25d78, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1800921142673012022, guid: 873bdd7a45f2845a3b6b3b611bd25d78, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1800921142673012022, guid: 873bdd7a45f2845a3b6b3b611bd25d78, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1800921142673012022, guid: 873bdd7a45f2845a3b6b3b611bd25d78, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1800921142673012022, guid: 873bdd7a45f2845a3b6b3b611bd25d78, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1800921142673012022, guid: 873bdd7a45f2845a3b6b3b611bd25d78, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1800921142673012022, guid: 873bdd7a45f2845a3b6b3b611bd25d78, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1800921142673012022, guid: 873bdd7a45f2845a3b6b3b611bd25d78, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1800921142673012022, guid: 873bdd7a45f2845a3b6b3b611bd25d78, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1800921142673012022, guid: 873bdd7a45f2845a3b6b3b611bd25d78, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1800921142673012022, guid: 873bdd7a45f2845a3b6b3b611bd25d78, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7157299135189540630, guid: 873bdd7a45f2845a3b6b3b611bd25d78, type: 3}
+      propertyPath: m_Name
+      value: First Level Tutorial
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 7157299135189540630, guid: 873bdd7a45f2845a3b6b3b611bd25d78, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1483321288872529194}
+    - targetCorrespondingSourceObject: {fileID: 7157299135189540630, guid: 873bdd7a45f2845a3b6b3b611bd25d78, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 382725376878044238}
+  m_SourcePrefab: {fileID: 100100000, guid: 873bdd7a45f2845a3b6b3b611bd25d78, type: 3}
+--- !u!1 &7760792512477649915 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 7157299135189540630, guid: 873bdd7a45f2845a3b6b3b611bd25d78, type: 3}
+  m_PrefabInstance: {fileID: 639522208935511277}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1483321288872529194
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7760792512477649915}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4555e006608b44b06b593d420ba1547a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  Buttons: []
+  Texts: []
+  Animators: []
+  Containers: []
+  Sliders: []
+  Toggles: []
+  InnerComponents: []
+  Images: []
+  VideoPlayers: []
+  Dropdowns: []
+  TextsInputs: []
+  Objects: []
+  States: []
+  LocalizeOnEnable: 0
+  ApplyInitialStateOnEnable: 0
+  _initialState:
+    Comment: 
+    Role: -1
+    NodeData:
+      Position: {x: 0, y: 0}
+      ParentRoles: 
+    Description: []
+--- !u!114 &382725376878044238
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7760792512477649915}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dad3bf64c52444af831d6d36646da2b0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _statefulComponent: {fileID: 1483321288872529194}
+  <AlwaysActivated>k__BackingField: 0

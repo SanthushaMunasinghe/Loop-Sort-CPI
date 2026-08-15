@@ -1,0 +1,70 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: Hidden Blocker Block
+  m_Shader: {fileID: 4800000, guid: 53bdd589f3c04a96b84840c3e9e1016f, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords:
+  - _USE_OBJECT_POSITION_SEED
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _DissolveTex:
+        m_Texture: {fileID: 2800000, guid: 568d1fa75a0d94f43ac170574263d007, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MainTex:
+        m_Texture: {fileID: 2800000, guid: 9a68c53a708e548b7a6a16517be88017, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _QuestionMarkTex:
+        m_Texture: {fileID: 2800000, guid: 6c9d8e554c1ad49da8b31835fc4720c7, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _Density: 3.5
+    - _DensityVariance: 2
+    - _DirectionVariance: 45
+    - _DissolveAmount: 0
+    - _DissolveScale: 7
+    - _DissolveWidth: 0.04
+    - _Glossiness: 0.55
+    - _MarkSpeed: 0.1
+    - _Metallic: 0
+    - _MovementRange: 0.504
+    - _RandomSeed: 0
+    - _RenderScale: 1.009
+    - _RotationVariance: 201
+    - _Scale: 0.83
+    - _ScaleVariance: 0.2
+    - _ShadowOffset: 0.1
+    - _Spacing: 0.9
+    - _SpacingVariance: 0.2
+    - _Speed: 1
+    - _SpeedVariance: 0.5
+    - _UseObjectPositionSeed: 1
+    m_Colors:
+    - _Color: {r: 0.2509804, g: 0.34509805, b: 0.5372549, a: 1}
+    - _Direction: {r: -1, g: 1, b: 0, a: 0}
+    - _DissolveColor: {r: 0.2758989, g: 0.3092555, b: 0.3773585, a: 1}
+    - _MainColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+    - _MarkTiling: {r: 2.79, g: 2.48, b: 0, a: 0}
+    - _QuestionColor: {r: 0.3764706, g: 0.4745098, b: 0.67058825, a: 1}
+    - _ShadowColor: {r: 0, g: 0.146299, b: 0.4528302, a: 0.54509807}
+  m_BuildTextureStacks: []

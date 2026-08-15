@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: de8f2b5bddca41bb9b178c67ece3af6c, type: 3}
+  m_Name: ConveyorConfig
+  m_EditorClassIdentifier: 
+  Speed: 5
+  ConveyorHeight: 1.1
+  EndPrefab: {fileID: 6209755823095684638, guid: 4919ad746b49149fd851925ccc362cdf, type: 3}
+  ShinePrefab: {fileID: 5139642563420673592, guid: 93eb507cde7844b309dff019387a9b25, type: 3}
+  ColliderPrefab: {fileID: 1260241100245585812, guid: 0c6e96f888cad4d23867028cbd8ed428, type: 3}
+  ArrowPrefab: {fileID: 7600719782943117109, guid: fb3813cfd6d0948fd9bf566b14d3d5f0, type: 3}
+  ArrowPerDistance: 2
+  SlotPrefab: {fileID: 7600719782943117109, guid: 4921189d7dee94b93b1b393c96fa4257, type: 3}
+  SlotElementOffset: 0.5
+  SlotCollisionDistance: 0.5
+  ClosestSlotDepth: 100
+  CarrierTriggerOffset: 0.5
+  LoanSystemSlotCount: 3
+  SideRedColor: {r: 0.8, g: 0.16, b: 0.16, a: 1}
+  RedRatio: 0.75
+  ColorPingPongModifier: 1.5
+  ColorLerpModifier: 4
+  ViewPrefab: {fileID: 4302174771026291099, guid: 70afacb379c284c1cb449eae90404b72, type: 3}

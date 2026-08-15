@@ -1,0 +1,14 @@
+skeleton.png
+size:653,497
+filter:Linear,Linear
+Gold Dollar
+bounds:513,130,140,138
+rotate:90
+piggy/Piggy
+bounds:2,2,509,493
+piggy/Tail
+bounds:513,60,80,68
+piggy/Top
+bounds:513,272,223,106
+offsets:0,0,224,107
+rotate:90

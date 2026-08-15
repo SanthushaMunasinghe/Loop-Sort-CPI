@@ -1,0 +1,9 @@
+{
+  "name": "SpritedowAnimator.Editor",
+  "includePlatforms": [
+    "Editor"
+  ],
+  "references": [
+    "SpritedowAnimator.Runtime"
+  ]
+}

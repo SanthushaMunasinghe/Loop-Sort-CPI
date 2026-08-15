@@ -1,0 +1,89 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3c3b56433d55474ba415584f3ad7ee5e, type: 3}
+  m_Name: Features
+  m_EditorClassIdentifier: 
+  Collection:
+    list:
+    - Key: 21
+      Value:
+        Prefab: {fileID: 0}
+        Material: {fileID: 0}
+        Icon: {fileID: 21300000, guid: 97783c10ca83247fd9f88c4e10929252, type: 3}
+        IconScaleMultiplier: 0.95
+    - Key: 22
+      Value:
+        Prefab: {fileID: 0}
+        Material: {fileID: 0}
+        Icon: {fileID: 21300000, guid: dd23625b949b541f8982c1aac3a7b0dd, type: 3}
+        IconScaleMultiplier: 0.7
+    - Key: 20
+      Value:
+        Prefab: {fileID: 0}
+        Material: {fileID: 0}
+        Icon: {fileID: 21300000, guid: e3b4ed4289d134a07a2b932e8d4917b1, type: 3}
+        IconScaleMultiplier: 0.85
+    - Key: 2
+      Value:
+        Prefab: {fileID: 0}
+        Material: {fileID: 0}
+        Icon: {fileID: 21300000, guid: 15654a965139b418e9f6c604c35b200b, type: 3}
+        IconScaleMultiplier: 0.9
+    - Key: 4
+      Value:
+        Prefab: {fileID: 0}
+        Material: {fileID: 0}
+        Icon: {fileID: 21300000, guid: bc3046917c7d5402995bf29b04d16e91, type: 3}
+        IconScaleMultiplier: 0.7
+    - Key: 23
+      Value:
+        Prefab: {fileID: 0}
+        Material: {fileID: 0}
+        Icon: {fileID: 21300000, guid: c8ecd10c91d6e46b7bb91adaf808c899, type: 3}
+        IconScaleMultiplier: 0.9
+    - Key: 5
+      Value:
+        Prefab: {fileID: 2358142699116448040, guid: 4d032c8e30f514b20b1e52a9b4155dac, type: 3}
+        Material: {fileID: 0}
+        Icon: {fileID: 0}
+        IconScaleMultiplier: 0
+    - Key: 6
+      Value:
+        Prefab: {fileID: 4526493991011100892, guid: 45b76d84b19644d72a8968664cb78b9b, type: 3}
+        Material: {fileID: 0}
+        Icon: {fileID: 0}
+        IconScaleMultiplier: 0
+    - Key: 25
+      Value:
+        Prefab: {fileID: 2358142699116448040, guid: 951a1680953fb405ca95d90628448ffc, type: 3}
+        Material: {fileID: 0}
+        Icon: {fileID: 21300000, guid: 7c78026d6572849ebb85df6165a475f5, type: 3}
+        IconScaleMultiplier: 1
+    - Key: 26
+      Value:
+        Prefab: {fileID: 2358142699116448040, guid: 84aa8f5398b9744d0add417884c9104b, type: 3}
+        Material: {fileID: 0}
+        Icon: {fileID: 21300000, guid: 52c82bc7f7a43431a99657e0108d1589, type: 3}
+        IconScaleMultiplier: 1
+    - Key: 24
+      Value:
+        Prefab: {fileID: 0}
+        Material: {fileID: 0}
+        Icon: {fileID: 21300000, guid: 1f9ea59e17daf4409b355e35b9d8982a, type: 3}
+        IconScaleMultiplier: 0.9
+    - Key: 27
+      Value:
+        Prefab: {fileID: 0}
+        Material: {fileID: 0}
+        Icon: {fileID: 21300000, guid: 2b9ee079caf0549b7bc852c0f5c9d7a0, type: 3}
+        IconScaleMultiplier: 0.77
+    keyCollision: 0

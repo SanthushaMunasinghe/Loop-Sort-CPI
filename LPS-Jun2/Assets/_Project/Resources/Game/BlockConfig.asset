@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 325e9756ce45406f98bf0e10715a7456, type: 3}
+  m_Name: BlockConfig
+  m_EditorClassIdentifier: 
+  BeveledMesh: {fileID: -24470585287426858, guid: 85258ee1a833146469ad7a6649e67d96, type: 3}
+  FlatMesh: {fileID: -5495902117074765545, guid: 5c83fbf7a7ce24d23985894a3d9bad84, type: 3}
+  CornerMesh: {fileID: -853295877095418010, guid: e26c7c08762b24096862877100dd36bf, type: 3}
+  MiddleMesh: {fileID: -5442176633539016162, guid: 1fb9263d50411409ab71409810cda7ed, type: 3}
+  SphereMesh: {fileID: 4711208715938537054, guid: 7adbc7905d94e4f98ad88c4edef32fba, type: 3}
+  GroupBeveledMesh: {fileID: 3840206093424346222, guid: 72f9a025038654b7cb99d248100967c6, type: 3}
+  GroupCornerMesh: {fileID: 8272504551215938554, guid: fa9ee95f0f9234e17aaf2234fade944d, type: 3}
+  GroupCenterMesh: {fileID: 3178539673400867909, guid: fd590a622d23949c2ba79901e7b9162b, type: 3}
+  ConveyorBlock: {fileID: 45976078355262917, guid: c0d0411ddaec64ef9a0dcad7238d8e10, type: 3}
+  BlockGroupShapePrefab: {fileID: 3746892500755428020, guid: 4fde4cfd5b38b49d98e5945b88b1b79e, type: 3}
+  ConveyorForce: 12
+  Mass: 4
+  Drag: 0.1
+  AngularDrag: 10
+  InitialImpulseForce: 20
+  MaxLinearVelocity: 20
+  ForceDirectionOffset: 1
+  BakeSampleCount: 256
+  CellSize: 0.33
+  MaxSearchRadius: 2

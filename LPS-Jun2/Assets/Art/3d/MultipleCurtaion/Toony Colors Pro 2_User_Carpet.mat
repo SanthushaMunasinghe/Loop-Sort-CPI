@@ -1,0 +1,83 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: Toony Colors Pro 2_User_Carpet
+  m_Shader: {fileID: 4800000, guid: 037f4933355524576b304bf75537def6, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords: []
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _BumpMap:
+        m_Texture: {fileID: 2800000, guid: 26a44d28788dd4502b0a0fabcdfddc97, type: 3}
+        m_Scale: {x: 0.05, y: 0.05}
+        m_Offset: {x: 0, y: 0}
+    - _MainTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _TriGround:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _TriGroundBump:
+        m_Texture: {fileID: 2800000, guid: a7ee790acee6f4429b50c03bf1245793, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _TriSide:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _TriSideBump:
+        m_Texture: {fileID: 2800000, guid: a7ee790acee6f4429b50c03bf1245793, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _BumpScale: 1
+    - _LightWrapFactor: 0.5
+    - _RampSmoothing: 0.786
+    - _RampSmoothingDirectional: 0.5
+    - _RampSmoothingOtherLights: 0.5
+    - _RampSmoothingPoint: 0.5
+    - _RampSmoothingSpot: 0.5
+    - _RampThreshold: 0.777
+    - _RampThresholdDirectional: 0.5
+    - _RampThresholdOtherLights: 0.5
+    - _RampThresholdPoint: 0.5
+    - _RampThresholdSpot: 0.5
+    - _SpecularRoughnessPBR: 0.6
+    - _SpecularShadowAttenuation: -0.22
+    - _SpecularSmoothness: 0.15
+    - __BeginGroup_OtherLights: 0
+    - __EndGroup: 0
+    - __dummy__: 0
+    m_Colors:
+    - _Color: {r: 0.8666667, g: 0.02745098, b: 0.019607844, a: 1}
+    - _HColor: {r: 0.8392157, g: 0.52156866, b: 0.40784314, a: 1}
+    - _SColor: {r: 0.5019608, g: 0.015686275, b: 0.007843138, a: 1}
+    - _SpecularColor: {r: 0.73800004, g: 0.73800004, b: 0.73800004, a: 1}
+    - _TCP2_AMBIENT_BACK: {r: 0, g: 0, b: 0, a: 1}
+    - _TCP2_AMBIENT_BOTTOM: {r: 0, g: 0, b: 0, a: 1}
+    - _TCP2_AMBIENT_FRONT: {r: 0, g: 0, b: 0, a: 1}
+    - _TCP2_AMBIENT_LEFT: {r: 0, g: 0, b: 0, a: 1}
+    - _TCP2_AMBIENT_RIGHT: {r: 0, g: 0, b: 0, a: 1}
+    - _TCP2_AMBIENT_TOP: {r: 0, g: 0, b: 0, a: 1}
+    - _TriplanarBlendStrength: {r: 2, g: 8, b: 2, a: 0.5}
+    - _TriplanarSamplingStrength: {r: 8, g: 16, b: 8, a: 10}
+  m_BuildTextureStacks: []
