@@ -12,8 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 196f1eeecdf147bba8e1c0eb5f91c993, type: 3}
   m_Name: Voodoo Shop
   m_EditorClassIdentifier: 
-  Collection:
-  - {fileID: 11400000, guid: 3406d9efa2e60460184714ebd003aa0d, type: 2}
-  - {fileID: 11400000, guid: 67c2794b1fad543f2b806f455fc947cb, type: 2}
+  Collection: []
   Flags:
   - voodoo_shop
