@@ -22,8 +22,9 @@ public class OutlineRenderer : MonoBehaviour
     {
         if (_outlineModule == null)
         {
-            var scope = LifetimeScopeH.FindScope<BootstrapScope>();
-            _outlineModule = scope.Container.Resolve<OutlineModule>();
+            var scope = LifetimeScopeH.FindScope<SceneScope>();
+            if (scope != null && scope.Container != null)
+                scope.Container.TryResolve(out _outlineModule);
         }
 
         _meshFilters = ListPool<MeshFilter>.Get();
@@ -59,6 +60,8 @@ public class OutlineRenderer : MonoBehaviour
 
     private void Add()
     {
+        if (_outlineModule == null) return;
+
         foreach (var meshFilter in _meshFilters)
         {
             var outlineEntity = _outlineModule.Add(meshFilter.gameObject, meshFilter.sharedMesh, _color, Width, _mode);
@@ -68,6 +71,8 @@ public class OutlineRenderer : MonoBehaviour
 
     private void Remove()
     {
+        if (_outlineModule == null) return;
+
         foreach (var outlineEntity in _outlineEntities)
         {
             _outlineModule.Remove(outlineEntity);

@@ -12,7 +12,6 @@ public sealed class BlockTransferSystem : SystemBase
 {
     [Inject] private SplineComputer _splineComputer;
     [Inject] private ConveyorConfig _conveyorConfig;
-    [Inject] private GameMachine _gameMachine;
     [Inject] private AudioModule _audioModule;
     [Inject] private Conveyor _conveyor;
     [Inject] private RemoteConfigModule _remoteConfigModule;
@@ -369,10 +368,8 @@ public sealed class BlockTransferSystem : SystemBase
 
     private void HandleCarrierTrigger(SplineUser splineUser, Carrier carrier)
     {
-        if (_gameMachine.ActiveStateName != nameof(GamePlayingState) &&
-            _gameMachine.ActiveStateName != nameof(GameTutorialState))
-            return;
-
+        // The playing/tutorial state gate is gone with the game state machine — the sandbox is
+        // always "playing".
         if (!carrier.gameObject.activeInHierarchy)
             return;
 
@@ -390,10 +387,7 @@ public sealed class BlockTransferSystem : SystemBase
 
     public async UniTaskVoid HandleCarrierTrigger(Carrier carrier, List<Block> blocks)
     {
-        if (_gameMachine.ActiveStateName != nameof(GamePlayingState) &&
-            _gameMachine.ActiveStateName != nameof(GameTutorialState))
-            return;
-
+        // Same here — no state machine, so conveyor -> carrier pickup is always allowed.
         foreach (var block in blocks)
         {
             if (!_blockTransferCarriers.Has(block)) continue;

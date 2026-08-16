@@ -8,6 +8,21 @@ public partial class GameBehaviourBase
     private readonly List<RendererPropertyRegistry> _rendererPropertyRegistries = new();
     private readonly List<RendererThemeRegistry> _rendererThemeRegistries = new();
 
+#if UNITY_EDITOR
+    /// <summary>
+    /// Applies a colour in edit mode, where nothing has been injected yet.
+    ///
+    /// Used by LevelSandboxGenerator so generated blocks look right in the scene view. Only the
+    /// no-offset path is reachable here, and that path never touches PropertyBlock — which is just
+    /// as well, because that is injected too.
+    /// </summary>
+    public void EditorInjectColorType(Colors colors, ColorType colorType)
+    {
+        Colors = colors;
+        InjectColorType(colorType);
+    }
+#endif
+
     public void InjectColorType(ColorType colorType, Color colorOffset = default)
     {
         if (_rendererPropertyRegistries.Count == 0)

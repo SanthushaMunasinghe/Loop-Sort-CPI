@@ -1,17 +1,21 @@
-using Dreamteck.Splines;
 using MessagePipe;
 using Scellecs.Morpeh;
 using UnityEngine;
 using UnityEngine.Pool;
 using VContainer;
 
+/// <summary>
+/// Binds the pre-generated carrier triggers to the transfer system.
+///
+/// The trigger GameObjects themselves are produced by LevelSandboxGenerator and live in the scene,
+/// so this no longer creates anything — it only wires each BlockTrigger to the carrier it was
+/// generated for.
+/// </summary>
 public sealed class BlockTriggerSystem : SystemBase, IFixedSystem
 {
-    [Inject] private SplineComputer _splineComputer;
-    [Inject] private GameMachine _gameMachine;
-    [Inject] private ConveyorConfig _conveyorConfig;
     [Inject] private BlockTransferSystem _blockTransferSystem;
     [Inject] private RemoteConfigModule _remoteConfigModule;
+    [Inject] private LevelSandbox _levelSandbox;
 
     [Inject] private IPublisher<CarrierTriggerCompleteMessage> _carrierTriggerCompletePub;
     [Inject] private IPublisher<CarrierTriggerStartMessage> _carrierTriggerStartPub;
@@ -19,6 +23,13 @@ public sealed class BlockTriggerSystem : SystemBase, IFixedSystem
 
     private Stash<BehaviourView<Carrier>> _carriers;
     private BlockPhysicsConfig _blockPhysicsConfig;
+
+    public override void OnAwake()
+    {
+        base.OnAwake();
+
+        _carriers = World.GetStash<BehaviourView<Carrier>>();
+    }
 
     protected override void BuildMessages(DisposableBagBuilder bag)
     {
@@ -31,23 +42,32 @@ public sealed class BlockTriggerSystem : SystemBase, IFixedSystem
 
     private void OnLevelBuildComplete(LevelBuildCompleteMessage obj)
     {
-        AddCarrierTriggers();
+        BindCarrierTriggers();
     }
 
-    private void AddCarrierTriggers()
+    private void BindCarrierTriggers()
     {
-        foreach (Carrier carrier in _carriers)
+        var root = _levelSandbox != null ? _levelSandbox.TriggersRoot : null;
+        if (root == null)
         {
-            var worldPosition = carrier.TransferProjectPoint.position;
-            var project = _splineComputer.Project(worldPosition);
-            var travel = _splineComputer.TravelUnclamped(project.percent, _conveyorConfig.CarrierTriggerOffset, Spline.Direction.Backward);
-            var collider = new GameObject("Trigger", typeof(BoxCollider), typeof(BlockTrigger));
-            collider.GetComponent<BoxCollider>().isTrigger = true;
-            var sample = _splineComputer.Evaluate(travel);
-            collider.transform.position = sample.position + Vector3.up;
-            collider.transform.forward = sample.forward;
-            collider.transform.localScale = new Vector3(2f, 2f, .2f);
-            var blockTrigger = collider.GetComponent<BlockTrigger>();
+            Debug.LogWarning($"[{nameof(BlockTriggerSystem)}] No triggers root — conveyor to carrier " +
+                             "pickup will not work. Re-generate the level.");
+            return;
+        }
+
+        var triggers = root.GetComponentsInChildren<CarrierBlockTrigger>(true);
+        foreach (var carrierTrigger in triggers)
+        {
+            var carrier = carrierTrigger.Carrier;
+            if (carrier == null)
+            {
+                Debug.LogWarning($"[{nameof(BlockTriggerSystem)}] Trigger '{carrierTrigger.name}' has no " +
+                                 "Carrier assigned.", carrierTrigger);
+                continue;
+            }
+
+            if (!carrierTrigger.TryGetComponent<BlockTrigger>(out var blockTrigger)) continue;
+
             blockTrigger.AddListener(block =>
             {
                 var conveyorSlot = block.Container as ConveyorSlot;
@@ -57,12 +77,5 @@ public sealed class BlockTriggerSystem : SystemBase, IFixedSystem
                 _blockTransferSystem.HandleCarrierTrigger(carrier, blocks);
             });
         }
-    }
-
-    public override void OnAwake()
-    {
-        base.OnAwake();
-
-        _carriers = World.GetStash<BehaviourView<Carrier>>();
     }
 }

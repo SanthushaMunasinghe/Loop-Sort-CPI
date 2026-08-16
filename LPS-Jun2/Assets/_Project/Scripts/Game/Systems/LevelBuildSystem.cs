@@ -45,6 +45,7 @@ public sealed class LevelBuildSystem : SystemBase
 
         _splineRef = _level.Spline.Ref;
         var cells = _splineRef.Data.Cells;
+
         CreateSplinePoints(cells);
 
         if (_splineRef.Closed)
@@ -306,6 +307,7 @@ public struct LevelBuildCompleteMessage
 {
 }
 
+[System.Serializable]
 public struct CarrierBlockArgs
 {
     public Vector3Int Size;

@@ -1,27 +1,73 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Dreamteck.Splines;
+using MessagePipe;
 using Scellecs.Morpeh;
 using UnityEngine;
 using UnityEngine.Pool;
 using VContainer;
 using VContainer.Unity;
 
+/// <summary>
+/// The one and only container for a level sandbox scene.
+///
+/// This used to be a child of MonitorScope under BootstrapScope, and pulled its data, modules and
+/// sheets from there. It is now self sufficient: everything it needs is either a serialized
+/// reference on this component or a component already sitting in the scene. There is no Bootstrap
+/// scene, no UI stack, no DontDestroyOnLoad object and no Resources loading in the play path.
+/// </summary>
 [DefaultExecutionOrder(-100)]
 public sealed class SceneScope : LifetimeScope
 {
-    [Inject] private BootstrapScope _bootstrapScope;
+    [Header("Data")]
+    [Tooltip("Data assets to register, exactly as DataInstaller used to. Colors, Sounds, Particles, " +
+             "BlockConfig, CarrierConfig and ConveyorConfig are the minimum for the transfer loop.")]
+    [SerializeField] private Data[] _data;
+
+    [Tooltip("Visual theme handed to every GameBehaviourBase.")]
+    [SerializeField] private ThemeType _theme = ThemeType.Default;
+
+    [Header("Scene")]
+    [Tooltip("Your camera. InteractionModule raycasts through it — without one there is no input.")]
+    [SerializeField] private Camera _camera;
+
+    [SerializeField] private Conveyor _conveyor;
+    [SerializeField] private SplineComputer _splineComputer;
+    [SerializeField] private SplineMesh _splineMesh;
+
+    [Header("Systems")]
+    [Tooltip("Only these SystemBase types are constructed. Everything else in the project is ignored.")]
+    [SerializeField]
+    private string[] _systems =
+    {
+        nameof(ConveyorSpeedSystem),
+        nameof(ConveyorSlotCreateSystem),
+        nameof(BlockPhysicsSystem),
+        nameof(BlockTransferSystem),
+        nameof(BlockTriggerSystem),
+        nameof(CarrierSelectSystem),
+        nameof(BlockCarrierMeshSystem),
+        nameof(BlockNextTransferSystem),
+    };
+
+    public Camera Camera => _camera;
+    public Conveyor Conveyor => _conveyor;
+    public SplineComputer SplineComputer => _splineComputer;
 
     private World _world;
-    private LevelSheet.Level _currentLevel;
+    private readonly HashSet<Type> _explicitTypes = new();
 
-    private readonly HashSet<int> _transitionLevels = new() { 0, 1 };
-
-    protected override void Awake()
+#if UNITY_EDITOR
+    /// <summary>Wired by LevelSandboxGenerator after it builds the conveyor.</summary>
+    public void SetSceneReferences(Conveyor conveyor, SplineComputer splineComputer, SplineMesh splineMesh)
     {
-        LifetimeScopeH.InjectIfNotScoped<MonitorScope>(this);
-        base.Awake();
+        _conveyor = conveyor;
+        _splineComputer = splineComputer;
+        _splineMesh = splineMesh;
+        UnityEditor.EditorUtility.SetDirty(this);
     }
+#endif
 
     protected override void OnDestroy()
     {
@@ -34,20 +80,77 @@ public sealed class SceneScope : LifetimeScope
     {
         base.Configure(builder);
 
+        _explicitTypes.Clear();
+
+        builder.RegisterMessagePipe();
+        builder.RegisterBuildCallback(container => GlobalMessagePipe.SetProvider(container.AsServiceProvider()));
+
         builder.Register<MaterialPropertyBlock>(Lifetime.Singleton);
         builder.Register<SceneRegistry>(Lifetime.Singleton).AsSelf().AsImplementedInterfaces();
 
+        HandleData(builder);
+        HandleModules(builder);
+        HandleSceneSingletons(builder);
         HandleSceneComponents(builder);
         HandleWorld(builder);
         HandleSystems(builder);
-        HandleSheetContainer(builder);
 
-        builder.RegisterInstance(new Level(Prefs.Level.Value, _currentLevel));
-        builder.RegisterInstance(new LevelTransitionData
+        builder.RegisterInstance(_theme).AsSelf();
+    }
+
+    private void HandleData(IContainerBuilder builder)
+    {
+        if (_data == null) return;
+
+        foreach (var data in _data)
         {
-            Enter = _transitionLevels.Contains(Prefs.Level.Value - 1),
-            Exit = _transitionLevels.Contains(Prefs.Level.Value)
-        });
+            if (data == null) continue;
+            if (!_explicitTypes.Add(data.GetType())) continue;
+            builder.RegisterComponent(data).AsSelf();
+        }
+    }
+
+    /// <summary>
+    /// An explicit list rather than reflection over ModuleBase: reflection would drag in
+    /// EconomyModule (which needs SheetContainer) and TutorialModule (which needs the UI).
+    /// </summary>
+    private void HandleModules(IContainerBuilder builder)
+    {
+        Register<SceneModule>();
+        Register<PrefabModule>();
+        Register<RemoteConfigModule>();
+        Register<AudioModule>();
+        Register<HapticModule>();
+        Register<InteractionModule>();
+        Register<OutlineModule>();
+        return;
+
+        void Register<T>()
+        {
+            _explicitTypes.Add(typeof(T));
+            builder.Register(typeof(T), Lifetime.Singleton).AsSelf().AsImplementedInterfaces();
+        }
+    }
+
+    /// <summary>
+    /// Registered by hand because a generated level contains more than one of some of these types
+    /// (the conveyor collider prefab carries a second SplineMesh), and HandleSceneComponents
+    /// silently drops any type it sees twice.
+    /// </summary>
+    private void HandleSceneSingletons(IContainerBuilder builder)
+    {
+        Register(_camera);
+        Register(_conveyor);
+        Register(_splineComputer);
+        Register(_splineMesh);
+        return;
+
+        void Register<T>(T component) where T : Component
+        {
+            if (component == null) return;
+            _explicitTypes.Add(typeof(T));
+            builder.RegisterComponent(component).AsSelf();
+        }
     }
 
     private void HandleSceneComponents(IContainerBuilder builder)
@@ -60,6 +163,7 @@ public sealed class SceneScope : LifetimeScope
             .Select(g => g.First());
         foreach (var component in uniqueComponents)
         {
+            if (_explicitTypes.Contains(component.GetType())) continue;
             builder.RegisterInstance(component).AsSelf();
         }
     }
@@ -73,18 +177,29 @@ public sealed class SceneScope : LifetimeScope
 
     private void HandleSystems(IContainerBuilder builder)
     {
-        if (gameObject.scene.buildIndex != 1) return;
-
         var systemsGroup = _world.CreateSystemsGroup();
 
         var baseType = typeof(SystemBase);
         using var p1 = baseType.GetDerivedClassTypes(out var derivedTypes);
         using var p2 = ListPool<SystemBase>.Get(out var systems);
+
+        var allowed = new HashSet<string>(_systems ?? Array.Empty<string>());
+        var matched = new HashSet<string>();
+
         foreach (var derivedType in derivedTypes)
         {
+            if (!allowed.Contains(derivedType.Name)) continue;
+            matched.Add(derivedType.Name);
+
             var instance = Activator.CreateInstance(derivedType) as SystemBase;
             systems.Add(instance);
             systemsGroup.AddSystem(instance);
+        }
+
+        foreach (var name in allowed)
+        {
+            if (matched.Contains(name)) continue;
+            Debug.LogWarning($"<b>{nameof(SceneScope)}</b>: no SystemBase named '{name}' was found.", this);
         }
 
         foreach (var system in systems)
@@ -93,23 +208,6 @@ public sealed class SceneScope : LifetimeScope
         }
 
         _world.AddSystemsGroup(0, systemsGroup);
-    }
-
-    private void HandleSheetContainer(IContainerBuilder builder)
-    {
-        if (!_bootstrapScope.Container.TryResolve<SheetContainer>(out var sheetContainer)) return;
-
-        var maxLevelOffset = sheetContainer.Constants.GetInt(GameConstant.MaxLevelOffset);
-        var level = sheetContainer.Levels.GetCurrent(maxLevelOffset);
-        builder.RegisterInstance(level).AsSelf();
-
-        var themeFrequency = sheetContainer.Constants.GetInt(GameConstant.ThemeFrequency);
-        var nextTheme = level.Theme != ThemeType.Default
-            ? level.Theme
-            : sheetContainer.Levels.GetNextTheme(themeFrequency);
-        builder.RegisterInstance(nextTheme).AsSelf();
-
-        _currentLevel = level;
     }
 }
 

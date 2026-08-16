@@ -29,7 +29,7 @@ public sealed class PrefabReturnerOnDisable : MonoBehaviour
     {
         if (_prefabModule != null) return;
 
-        var scope = LifetimeScopeH.FindScope<BootstrapScope>();
+        var scope = LifetimeScopeH.FindScope<SceneScope>();
         if (scope == null || scope.Container == null) return;
         _prefabModule = scope.Container.Resolve<PrefabModule>();
     }

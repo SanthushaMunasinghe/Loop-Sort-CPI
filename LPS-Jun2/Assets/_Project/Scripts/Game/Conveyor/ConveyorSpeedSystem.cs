@@ -8,7 +8,6 @@ public sealed class ConveyorSpeedSystem : SystemBase
 {
     [Inject] private Conveyor _conveyor;
     [Inject] private RemoteConfigModule _remoteConfigModule;
-    [Inject] private GameMachine _gameMachine;
 
     private Filter _filter;
     private Stash<BehaviourView<Carrier>> _carriers;
@@ -37,9 +36,8 @@ public sealed class ConveyorSpeedSystem : SystemBase
         var occupiedSlotCount = _conveyor.GetOccupiedSlotCount();
         var isFirstLevels = 2 > Prefs.Level && occupiedSlotCount > 0;
 
-        if (_gameMachine.IsInState<GameReviveState>())
-            speedScale = .2f;
-        else if (_paceConfig.SlowerWhenConveyorEmpty && occupiedSlotCount == 0)
+        // The GameReviveState slow-down is gone with the game state machine.
+        if (_paceConfig.SlowerWhenConveyorEmpty && occupiedSlotCount == 0)
             speedScale = .2f;
         else if (_paceConfig.HoldToSpeed)
         {

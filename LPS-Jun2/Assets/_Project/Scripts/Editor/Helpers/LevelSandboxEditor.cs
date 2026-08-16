@@ -1,0 +1,370 @@
+using System.Collections.Generic;
+using System.Linq;
+using Cathei.BakingSheet;
+using Lean.Touch;
+using UnityEditor;
+using UnityEditor.SceneManagement;
+using UnityEngine;
+
+[CustomEditor(typeof(LevelSandbox))]
+public sealed class LevelSandboxEditor : Editor
+{
+    private const string DataContainerPath = "Assets/_Project/Resources/Data Containers/Data Container Base.asset";
+
+    private static SheetContainer _sheets;
+    private static bool _busy;
+
+    private LevelSandbox Sandbox => (LevelSandbox)target;
+
+    private SerializedProperty _levelProperty;
+    private SerializedProperty _conveyorProperty;
+
+    private void OnEnable()
+    {
+        _levelProperty = serializedObject.FindProperty("_level");
+        _conveyorProperty = serializedObject.FindProperty("_conveyor");
+    }
+
+    public override void OnInspectorGUI()
+    {
+        DrawDefaultInspector();
+
+        EditorGUILayout.Space(10);
+        DrawSceneSetup();
+        EditorGUILayout.Space(10);
+        DrawGenerateButtons();
+    }
+
+    private bool HasLevel => _conveyorProperty != null && _conveyorProperty.objectReferenceValue != null;
+
+    // ------------------------------------------------------------------ setup
+
+    private void DrawSceneSetup()
+    {
+        EditorGUILayout.LabelField("Scene Setup", EditorStyles.boldLabel);
+
+        var scope = FindScope();
+        var scene = Sandbox.gameObject.scene;
+        var roots = scene.IsValid() ? scene.GetRootGameObjects() : System.Array.Empty<GameObject>();
+
+        var hasScope = scope != null;
+        var hasData = hasScope && GetDataList(scope).Count > 0;
+        var hasCamera = hasScope && scope.Camera != null;
+        var hasLeanTouch = roots.Any(x => x.GetComponentInChildren<LeanTouch>(true) != null);
+        var hasLight = roots.Any(x => x.GetComponentInChildren<Light>(true) != null);
+        var hasStartScene = EditorSceneManager.playModeStartScene != null;
+
+        var ready = hasScope && hasData && hasCamera && hasLeanTouch && hasLight && !hasStartScene;
+
+        Status("SceneScope component", hasScope);
+        Status("Data assets assigned", hasData);
+        Status("Camera assigned", hasCamera);
+        Status("LeanTouch in scene (required for input)", hasLeanTouch);
+        Status("Light in scene", hasLight);
+        Status("Play mode start scene cleared", !hasStartScene);
+
+        EditorGUILayout.Space(4);
+
+        if (ready)
+        {
+            EditorGUILayout.HelpBox("Scene is ready.", MessageType.Info);
+            return;
+        }
+
+        using (new EditorGUI.DisabledScope(EditorApplication.isPlayingOrWillChangePlaymode))
+        {
+            if (GUILayout.Button("Set Up Scene", GUILayout.Height(28)))
+                SetUpScene();
+        }
+
+        EditorGUILayout.HelpBox(
+            "Set Up Scene adds the SceneScope, fills its Data list from Data Container Base, creates a " +
+            "camera, a LeanTouch object and a directional light, and clears the play mode start scene.",
+            MessageType.Warning);
+
+        return;
+
+        void Status(string label, bool ok)
+        {
+            EditorGUILayout.LabelField(ok ? "✔  " + label : "✘  " + label);
+        }
+    }
+
+    private void SetUpScene()
+    {
+        var scene = Sandbox.gameObject.scene;
+
+        var scope = FindScope();
+        if (scope == null)
+        {
+            scope = Undo.AddComponent<SceneScope>(Sandbox.gameObject);
+            Debug.Log("<b>Level Sandbox</b>: added SceneScope.", scope);
+        }
+
+        var so = new SerializedObject(scope);
+
+        // Data — same source of truth DataInstaller used at run time.
+        var dataProperty = so.FindProperty("_data");
+        if (dataProperty.arraySize == 0)
+        {
+            var container = AssetDatabase.LoadAssetAtPath<DataContainer>(DataContainerPath);
+            if (container == null || container.Collection == null)
+            {
+                Debug.LogError($"<b>Level Sandbox</b>: could not load {DataContainerPath}.");
+            }
+            else
+            {
+                var assets = container.Collection.Where(x => x != null).ToArray();
+                dataProperty.arraySize = assets.Length;
+                for (var i = 0; i < assets.Length; i++)
+                    dataProperty.GetArrayElementAtIndex(i).objectReferenceValue = assets[i];
+                Debug.Log($"<b>Level Sandbox</b>: filled Data list with {assets.Length} assets from Data Container Base.");
+            }
+        }
+
+        // Camera.
+        var cameraProperty = so.FindProperty("_camera");
+        if (cameraProperty.objectReferenceValue == null)
+        {
+            var camera = Object.FindObjectOfType<Camera>();
+            if (camera == null)
+            {
+                var go = new GameObject("Main Camera", typeof(Camera), typeof(AudioListener)) { tag = "MainCamera" };
+                go.transform.SetPositionAndRotation(new Vector3(0f, 20f, -15f), Quaternion.Euler(50f, 0f, 0f));
+                Undo.RegisterCreatedObjectUndo(go, "Set Up Scene");
+                camera = go.GetComponent<Camera>();
+                Debug.Log("<b>Level Sandbox</b>: created a camera. Reposition it to frame your level.", go);
+            }
+
+            cameraProperty.objectReferenceValue = camera;
+        }
+
+        so.ApplyModifiedProperties();
+
+        // LeanTouch — normally lives on the Monitors UI prefab, which the sandbox never creates.
+        if (!scene.GetRootGameObjects().Any(x => x.GetComponentInChildren<LeanTouch>(true) != null))
+        {
+            var go = new GameObject("Lean Touch", typeof(LeanTouch));
+            Undo.RegisterCreatedObjectUndo(go, "Set Up Scene");
+            Debug.Log("<b>Level Sandbox</b>: added LeanTouch (input would silently do nothing without it).", go);
+        }
+
+        // Light.
+        if (!scene.GetRootGameObjects().Any(x => x.GetComponentInChildren<Light>(true) != null))
+        {
+            var go = new GameObject("Directional Light", typeof(Light));
+            go.GetComponent<Light>().type = LightType.Directional;
+            go.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
+            Undo.RegisterCreatedObjectUndo(go, "Set Up Scene");
+        }
+
+        if (EditorSceneManager.playModeStartScene != null)
+        {
+            EditorSceneManager.playModeStartScene = null;
+            Prefs.StartSceneBootstrap.Set(false);
+            Debug.Log("<b>Level Sandbox</b>: cleared the play mode start scene.");
+        }
+
+        EditorSceneManager.MarkSceneDirty(scene);
+    }
+
+    // --------------------------------------------------------------- generate
+
+    private void DrawGenerateButtons()
+    {
+        EditorGUILayout.LabelField("Generate", EditorStyles.boldLabel);
+
+        using (new EditorGUI.DisabledScope(EditorApplication.isPlayingOrWillChangePlaymode || _busy))
+        {
+            using (new EditorGUI.DisabledScope(HasLevel))
+            {
+                if (GUILayout.Button("Spawn Level", GUILayout.Height(28)))
+                    SpawnLevel();
+            }
+
+            using (new EditorGUI.DisabledScope(!HasLevel))
+            {
+                if (GUILayout.Button("Clear Level"))
+                    ClearLevel();
+
+                if (GUILayout.Button("Frame Camera On Level"))
+                    FrameCamera();
+            }
+        }
+
+        if (_busy)
+            EditorGUILayout.HelpBox("Baking sheets...", MessageType.Info);
+        else if (!HasLevel)
+            EditorGUILayout.HelpBox("No level generated yet. Press Spawn Level.", MessageType.Warning);
+    }
+
+    private async void SpawnLevel()
+    {
+        if (HasLevel)
+        {
+            Debug.LogError("<b>Level Sandbox</b>: a level is already generated. Press Clear Level first.", Sandbox);
+            return;
+        }
+
+        var scope = FindScope();
+        if (scope == null)
+        {
+            Debug.LogError("<b>Level Sandbox</b>: no SceneScope. Press Set Up Scene first.", Sandbox);
+            return;
+        }
+
+        if (!ResolveDataAssets(scope, out var assets)) return;
+
+        _busy = true;
+        try
+        {
+            _sheets = await LevelSandboxGenerator.BakeSheets();
+        }
+        finally
+        {
+            _busy = false;
+        }
+
+        if (_sheets == null)
+        {
+            Debug.LogError("<b>Level Sandbox</b>: failed to bake sheets, see errors above.");
+            return;
+        }
+
+        if (target == null) return; // inspector went away while baking
+
+        var result = LevelSandboxGenerator.Generate(_sheets, _levelProperty.intValue, scope, Sandbox,
+            assets.Colors, assets.ConveyorConfig, assets.CarrierConfig, assets.Carriers, assets.Blocks);
+
+        if (!result.Ok) return;
+
+        Undo.RegisterCreatedObjectUndo(result.Root, "Spawn Level");
+        Selection.activeGameObject = result.Root;
+        serializedObject.Update();
+
+        FrameCamera();
+    }
+
+    private void ClearLevel()
+    {
+        var conveyor = _conveyorProperty.objectReferenceValue as Conveyor;
+        var levelRoot = conveyor != null && conveyor.transform.parent != null
+            ? conveyor.transform.parent.gameObject
+            : null;
+
+        // Null the references before destroying what they point at.
+        serializedObject.Update();
+        _conveyorProperty.objectReferenceValue = null;
+        foreach (var name in new[] { "_carriersRoot", "_slotsRoot", "_triggersRoot" })
+        {
+            var property = serializedObject.FindProperty(name);
+            if (property != null) property.objectReferenceValue = null;
+        }
+        serializedObject.ApplyModifiedProperties();
+
+        var scope = FindScope();
+        if (scope != null) scope.SetSceneReferences(null, null, null);
+
+        if (levelRoot != null) Undo.DestroyObjectImmediate(levelRoot);
+
+        EditorSceneManager.MarkSceneDirty(Sandbox.gameObject.scene);
+    }
+
+    /// <summary>Pulls the camera back far enough to see the whole generated level.</summary>
+    private void FrameCamera()
+    {
+        var scope = FindScope();
+        if (scope == null || scope.Camera == null) return;
+
+        var conveyor = _conveyorProperty.objectReferenceValue as Conveyor;
+        if (conveyor == null) return;
+
+        var levelRoot = conveyor.transform.parent;
+        if (levelRoot == null) return;
+
+        var renderers = levelRoot.GetComponentsInChildren<Renderer>(true);
+        if (renderers.Length == 0) return;
+
+        var bounds = renderers[0].bounds;
+        foreach (var r in renderers) bounds.Encapsulate(r.bounds);
+
+        var camera = scope.Camera;
+        var size = bounds.extents.magnitude;
+        var distance = size / Mathf.Tan(camera.fieldOfView * .5f * Mathf.Deg2Rad);
+
+        var direction = Quaternion.Euler(50f, 0f, 0f) * Vector3.forward;
+        Undo.RecordObject(camera.transform, "Frame Camera");
+        camera.transform.position = bounds.center - direction * distance;
+        camera.transform.rotation = Quaternion.LookRotation(direction);
+
+        EditorSceneManager.MarkSceneDirty(Sandbox.gameObject.scene);
+    }
+
+    // ------------------------------------------------------------------ data
+
+    private struct DataAssets
+    {
+        public Colors Colors;
+        public ConveyorConfig ConveyorConfig;
+        public CarrierConfig CarrierConfig;
+        public Carriers Carriers;
+        public Blocks Blocks;
+    }
+
+    private static List<Data> GetDataList(SceneScope scope)
+    {
+        var result = new List<Data>();
+        var so = new SerializedObject(scope);
+        var dataProperty = so.FindProperty("_data");
+        if (dataProperty == null) return result;
+
+        for (var i = 0; i < dataProperty.arraySize; i++)
+            if (dataProperty.GetArrayElementAtIndex(i).objectReferenceValue is Data data)
+                result.Add(data);
+
+        return result;
+    }
+
+    private static bool ResolveDataAssets(SceneScope scope, out DataAssets assets)
+    {
+        assets = new DataAssets();
+
+        foreach (var data in GetDataList(scope))
+        {
+            switch (data)
+            {
+                case Colors x: assets.Colors = x; break;
+                case ConveyorConfig x: assets.ConveyorConfig = x; break;
+                case CarrierConfig x: assets.CarrierConfig = x; break;
+                case Carriers x: assets.Carriers = x; break;
+                case Blocks x: assets.Blocks = x; break;
+            }
+        }
+
+        var missing = new List<string>();
+        if (assets.Colors == null) missing.Add(nameof(Colors));
+        if (assets.ConveyorConfig == null) missing.Add(nameof(ConveyorConfig));
+        if (assets.CarrierConfig == null) missing.Add(nameof(CarrierConfig));
+        if (assets.Carriers == null) missing.Add(nameof(Carriers));
+        if (assets.Blocks == null) missing.Add(nameof(Blocks));
+
+        if (missing.Count == 0) return true;
+
+        Debug.LogError($"<b>Level Sandbox</b>: the SceneScope Data list is missing {string.Join(", ", missing)}. " +
+                       "Press Set Up Scene to fill it automatically.", scope);
+        return false;
+    }
+
+    private SceneScope FindScope()
+    {
+        var scope = Sandbox.GetComponent<SceneScope>();
+        if (scope != null) return scope;
+
+        var scene = Sandbox.gameObject.scene;
+        if (!scene.IsValid()) return null;
+
+        return scene.GetRootGameObjects()
+            .Select(x => x.GetComponentInChildren<SceneScope>(true))
+            .FirstOrDefault(x => x != null);
+    }
+}

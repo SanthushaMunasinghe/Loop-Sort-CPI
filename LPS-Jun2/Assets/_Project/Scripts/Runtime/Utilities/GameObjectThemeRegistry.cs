@@ -9,8 +9,6 @@ public sealed class GameObjectThemeRegistry : MonoBehaviour
 
     [SerializeField] private GenericDictionary<ThemeType, GameObject> Registries = new();
 
-    private static SceneModule _sceneModule;
-
     private void OnEnable()
     {
         SetTheme();
@@ -18,18 +16,10 @@ public sealed class GameObjectThemeRegistry : MonoBehaviour
 
     private void SetTheme()
     {
-        if (_sceneModule == null)
-        {
-            var resolver = LifetimeScopeH.FindScope<BootstrapScope>().Container;
-            _sceneModule = resolver.Resolve<SceneModule>();
-        }
-
-        if (_sceneModule.Scope != null)
-        {
-            var resolver = _sceneModule.Scope.Container;
-            var themeType = resolver.Resolve<ThemeType>();
-            ApplyTheme(themeType);
-        }
+        // The theme now lives on SceneScope directly; there is no Bootstrap container to go through.
+        var scope = LifetimeScopeH.FindScope<SceneScope>();
+        if (scope == null || scope.Container == null) return;
+        ApplyTheme(scope.Container.Resolve<ThemeType>());
     }
 
     public void ApplyTheme(ThemeType themeType)

@@ -28,7 +28,9 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
     [field: SerializeField] public List<MeshRenderer> GroupBlocks { get; private set; }
     [field: SerializeField] public List<MeshFilter> GroupBlockFilters { get; private set; }
 
-    public CarrierSheet.CarrierType Type { get; private set; }
+    // Serialized so carriers placed by hand in a level test scene can be typed in the inspector.
+    // SetType still wins for carriers spawned from the sheet.
+    [field: SerializeField] public CarrierSheet.CarrierType Type { get; private set; }
 
     [Inject] private CarrierConfig _config;
     [Inject] private AudioModule _audioModule;
@@ -129,6 +131,53 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
     public void SetType(CarrierSheet.CarrierType carrierType)
     {
         Type = carrierType;
+    }
+
+#if UNITY_EDITOR
+    /// <summary>Used by LevelSandboxGenerator; Type is serialized so it survives the scene save.</summary>
+    public void EditorSetType(CarrierSheet.CarrierType carrierType)
+    {
+        Type = carrierType;
+        UnityEditor.EditorUtility.SetDirty(this);
+    }
+#endif
+
+    /// <summary>
+    /// Registers blocks that were generated into BlockParent in the editor.
+    ///
+    /// This is the no-motion, no-messages half of <see cref="AddBlock"/>: the generator has already
+    /// done the parenting, positioning, scaling and mesh assignment, so all that is left is the
+    /// bookkeeping and the physics state a block needs while it is sitting in a carrier. Called by
+    /// LevelSandbox before the build messages go out.
+    /// </summary>
+    public void AdoptAuthoredBlocks()
+    {
+        if (BlockParent == null) return;
+
+        _blocks.Clear();
+        _idxByBlock.Clear();
+
+        for (var i = 0; i < BlockParent.childCount; i++)
+        {
+            var child = BlockParent.GetChild(i);
+            if (!child.TryGetComponent<Block>(out var block)) continue;
+
+            block.SetContainer(this);
+
+            block.Rigidbody.isKinematic = true;
+            block.Rigidbody.detectCollisions = false;
+            block.Collider.enabled = false;
+
+            var index = _blocks.Count;
+            _blocks.Add(block);
+            _idxByBlock[block] = index;
+
+            if (_blockPhysicsActives.Has(block)) _blockPhysicsActives.Remove(block);
+
+            block.CompleteContainer();
+        }
+
+        if (CanComplete()) SetComplete();
     }
 
     public async UniTask AddBlock(Block block, float delay = 0f, bool motion = true)

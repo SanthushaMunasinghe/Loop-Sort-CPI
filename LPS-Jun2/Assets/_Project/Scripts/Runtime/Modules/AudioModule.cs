@@ -25,11 +25,10 @@ public sealed class AudioModule : ModuleBase, IInitializable
 
     public void Initialize()
     {
+        // Deliberately not DontDestroyOnLoad — the sandbox keeps everything inside the scene.
         _audioSourceContainer = new GameObject("Audio Source Container");
-        Object.DontDestroyOnLoad(_audioSourceContainer);
 
         var musicSource = new GameObject("Music Source", typeof(AudioSource));
-        Object.DontDestroyOnLoad(musicSource);
         _musicSource = musicSource.GetComponent<AudioSource>();
         _musicSource.loop = true;
         _musicSource.playOnAwake = false;

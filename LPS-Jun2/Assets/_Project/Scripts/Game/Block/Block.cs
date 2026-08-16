@@ -1,10 +1,14 @@
 using Cysharp.Threading.Tasks;
 using UnityEngine;
+using VContainer;
 
 public sealed partial class Block : GameBehaviourBase
 {
-    public ColorType ColorType { get; private set; }
-    public FeatureType FeatureType { get; private set; }
+    [Inject] private RemoteConfigModule _remoteConfigModule;
+
+    // Serialized so a block generated into the scene keeps its colour and feature across a save.
+    [field: SerializeField] public ColorType ColorType { get; private set; }
+    [field: SerializeField] public FeatureType FeatureType { get; private set; }
     public float MotionDurationMultiplier { get; private set; }
     public IBlockContainer Container { get; private set; }
     public MeshFilter MeshFilter { get; private set; }
@@ -32,6 +36,15 @@ public sealed partial class Block : GameBehaviourBase
 
         _blockFeature = GetComponent<IBlockFeature>();
         RegisterView<Block>();
+
+        // Drives both the duration and the arc height of the transfer motion. This used to be set
+        // by CarrierBlockCreateSystem right after renting; blocks generated into the scene never
+        // went through that, and a multiplier of 0 makes every transfer a teleport. Reading it here
+        // covers generated, hand-added and spawned blocks alike.
+        MotionDurationMultiplier = _remoteConfigModule.GetDataClassNew<PaceConfig>().BlockAnimationDurationMultiplier;
+
+        // Generated blocks already carry a ColorType; re-apply it now that Colors is injected.
+        if (ColorType.Base != BaseColor.None) SetNormalColor();
     }
 
     public override void OnReturn()
@@ -63,6 +76,21 @@ public sealed partial class Block : GameBehaviourBase
     {
         FeatureType = featureType;
     }
+
+#if UNITY_EDITOR
+    /// <summary>
+    /// Used by LevelSandboxGenerator. Colour and feature are serialized so they survive the scene
+    /// save, and the material is applied straight away so the generated level looks right in the
+    /// scene view rather than only once you press Play.
+    /// </summary>
+    public void EditorSetColor(Colors colors, ColorType colorType, FeatureType featureType)
+    {
+        ColorType = colorType;
+        FeatureType = featureType;
+        EditorInjectColorType(colors, colorType);
+        UnityEditor.EditorUtility.SetDirty(this);
+    }
+#endif
 
     public void SetMotionDurationMultiplier(float durationMultiplier)
     {

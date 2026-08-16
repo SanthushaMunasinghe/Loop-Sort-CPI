@@ -1,21 +1,23 @@
 using System.Collections.Generic;
-using Cysharp.Threading.Tasks;
 using Dreamteck.Splines;
 using MessagePipe;
 using Scellecs.Morpeh;
 using UnityEngine;
 using VContainer;
 
+/// <summary>
+/// Adopts the conveyor slots that LevelSandboxGenerator baked into the scene.
+///
+/// The slot count, spline percents, conveyor speed and collision distance are all computed at
+/// generate time by <see cref="LevelGeometry.ComputeSlotLayout"/> and stored on LevelSandbox, so
+/// this only has to register each slot's follower with the conveyor and apply those values.
+/// </summary>
 public sealed class ConveyorSlotCreateSystem : SystemBase
 {
     [Inject] private Conveyor _conveyor;
-    [Inject] private ConveyorConfig _config;
-    [Inject] private SplineComputer _splineComputer;
-    [Inject] private PrefabModule _prefabModule;
-    [Inject] private RemoteConfigModule _remoteConfigModule;
+    [Inject] private LevelSandbox _levelSandbox;
 
     [Inject] private ISubscriber<LevelBuildCompleteMessage> _levelBuildCompleteSub;
-    [Inject] private IPublisher<SlotCreateCompleteMessage> _slotCreateCompletePub;
 
     private Stash<ExtraSlot> _extraSlots;
 
@@ -37,91 +39,31 @@ public sealed class ConveyorSlotCreateSystem : SystemBase
 
     private void OnLevelBuildComplete(LevelBuildCompleteMessage m)
     {
-        CreateSlots().Forget();
+        AdoptSlots();
     }
 
-    private async UniTaskVoid CreateSlots()
+    private void AdoptSlots()
     {
-        var parent = _splineComputer.transform;
-        var length = _splineComputer.CalculateLength();
-
-        var groupSlotCount = _conveyor.GroupSlotCount;
-        var slotCount = _conveyor.SlotCount;
-        var totalSlotCount = groupSlotCount * slotCount;
-
-        var slotCollisionDistance = _config.SlotCollisionDistance;
-
-        var lengthBasedSlotCount = Mathf.FloorToInt(length / slotCollisionDistance);
-        lengthBasedSlotCount = NormalizeSlotCount(lengthBasedSlotCount);
-
-        var paceConfig = _remoteConfigModule.GetDataClassNew<PaceConfig>();
-
-        var lengthSlot = (float)lengthBasedSlotCount / groupSlotCount;
-        var conveyorSpeed =
-            _config.Speed + (_config.Speed * (lengthSlot / slotCount) - _config.Speed) * .5f;
-        conveyorSpeed *= paceConfig.ConveyorSpeedMultiplier;
-        _conveyor.SetSpeed(conveyorSpeed);
-
-        for (var i = 0; i < totalSlotCount; i++)
+        var root = _levelSandbox != null ? _levelSandbox.SlotsRoot : null;
+        if (root == null)
         {
-            CreateConveyorSlot(parent);
+            Debug.LogWarning($"[{nameof(ConveyorSlotCreateSystem)}] No slots root — the conveyor will be " +
+                             "empty. Re-generate the level.");
+            return;
         }
 
-        var conveyorSystemConfig = _remoteConfigModule.GetDataClassNew<ConveyorSystemConfig>();
+        _slots.Clear();
+        root.GetComponentsInChildren(true, _slots);
 
-        if (conveyorSystemConfig.LoanSystem)
-        {
-            var extraSlotCount = groupSlotCount * _config.LoanSystemSlotCount;
-            totalSlotCount += extraSlotCount;
-            for (var i = 0; i < extraSlotCount; i++)
-            {
-                var instance = CreateConveyorSlot(parent);
-                _extraSlots.Add(instance);
-            }
-        }
+        // Order matters: UpdateFollower copies Conveyor.Speed onto the follower at call time, and
+        // slots are not in the _followers list that later speed changes iterate.
+        _conveyor.SetSpeed(_levelSandbox.ConveyorSpeed);
+        _conveyor.SetCollisionDistance(_levelSandbox.SlotCollisionDistance);
 
-        await UniTask.NextFrame(SceneLoadToken);
+        foreach (var splineFollower in _slots)
+            _conveyor.UpdateFollower(splineFollower);
 
-        var adaptiveSize = length / totalSlotCount;
-        slotCollisionDistance = conveyorSystemConfig.AdaptiveSize
-            ? adaptiveSize
-            : Mathf.Min(slotCollisionDistance, adaptiveSize);
-
-        for (var i = 0; i < totalSlotCount; i++)
-        {
-            var distance = slotCollisionDistance * i;
-            var travel = _splineComputer.Travel(0d, distance);
-            var splineFollower = _slots[i];
-            splineFollower.SetPercent(travel);
-        }
-
-        _conveyor.SetCollisionDistance(slotCollisionDistance);
-
-        // Debug.Log($"Slot Count: {totalSlotCount / blockGroupSlotCount} - " +
-        //           $"Length Based Slot Count: {lengthBasedSlotCount / blockGroupSlotCount}");
-
-        LengthBasedSlotCount = lengthBasedSlotCount / groupSlotCount;
-
-        _slotCreateCompletePub.Publish(new SlotCreateCompleteMessage());
-    }
-
-    private ConveyorSlot CreateConveyorSlot(Transform parent)
-    {
-        var instance = _prefabModule.Rent(_config.SlotPrefab, parent);
-        var splineFollower = instance.GetComponent<SplineFollower>();
-        _conveyor.UpdateFollower(splineFollower);
-        _slots.Add(splineFollower);
-        return splineFollower.GetComponent<ConveyorSlot>();
-    }
-
-    private int NormalizeSlotCount(int count)
-    {
-        var groupSlotCount = _conveyor.GroupSlotCount;
-        var a = count % groupSlotCount;
-        var b = groupSlotCount - a;
-        if (b > a) count -= a;
-        else count += b;
-        return count;
+        LengthBasedSlotCount = _levelSandbox.LengthBasedSlotCount;
     }
 }
 

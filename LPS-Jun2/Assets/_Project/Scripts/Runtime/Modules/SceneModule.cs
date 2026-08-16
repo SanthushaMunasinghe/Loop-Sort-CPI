@@ -12,7 +12,7 @@ public sealed class SceneModule : ModuleBase
     public SceneScope Scope { get; private set; }
     public IObjectResolver Container { get; private set; }
     public bool IsSceneReady { get; private set; }
-    public CancellationToken SceneLoadToken => _sceneLoadCts.Token;
+    public CancellationToken SceneLoadToken => (_sceneLoadCts ??= new CancellationTokenSource()).Token;
 
     private CancellationTokenSource _sceneLoadCts;
 
@@ -52,6 +52,7 @@ public sealed class SceneModule : ModuleBase
         if (waitPostLoad) await postSceneLoadTask;
         _scenePostLoad.Publish(new ScenePostLoadMessage());
     }
+
 }
 
 public struct ScenePreLoadMessage
