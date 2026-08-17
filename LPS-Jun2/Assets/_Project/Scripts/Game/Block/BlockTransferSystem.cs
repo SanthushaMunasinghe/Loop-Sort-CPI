@@ -415,8 +415,15 @@ public sealed class BlockTransferSystem : SystemBase
 
             if (carrier.IsFull()) break;
             if (!carrier.CanBeginTransfer()) break;
-            if (!block.IsCompatibleWith(carrier)) continue;
-            if (HasBetterCarrier(carrier, block)) continue;
+
+            // A sink decides for itself what it will have — CanTransferBlock below — so neither the
+            // colour match nor the better-carrier scan gets a say. IsFull above still caps it.
+            if (!carrier.IsSink())
+            {
+                if (!block.IsCompatibleWith(carrier)) continue;
+                if (HasBetterCarrier(carrier, block)) continue;
+            }
+
             if (!carrier.CanTransferBlock(block)) continue;
 
             var isTransferring = carrier.IsTransferring();
@@ -458,6 +465,9 @@ public sealed class BlockTransferSystem : SystemBase
         var betterCarrierBlockCount = 0;
         foreach (Carrier carrier in _carriers)
         {
+            // A sink acts on its own trigger only. Letting it score as someone else's better carrier
+            // would hold blocks back from carriers that can actually use them.
+            if (carrier.IsSink()) continue;
             if (!carrier.CanTransferBlock(block)) continue;
 
             if (carrier.IsBetterCarrier(block))

@@ -37,6 +37,14 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
                     "time reads this.")]
     [field: SerializeField] public CarrierMode Mode { get; private set; }
 
+    [field: Tooltip("Empty mode only: the color this sink accepts when Only Compatible Color is on. " +
+                    "Apply Carrier Modes paints the head with it.")]
+    [field: SerializeField] public ColorType CompatibleColor { get; private set; }
+
+    [field: Tooltip("Empty mode only: take in Compatible Color and let every other color ride past. " +
+                    "Off means the sink swallows anything that reaches it.")]
+    [field: SerializeField] public bool OnlyCompatibleColor { get; private set; }
+
     [Inject] private CarrierConfig _config;
     [Inject] private AudioModule _audioModule;
     [Inject] private HapticModule _hapticModule;
@@ -125,6 +133,10 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
     public void Interact(LeanFinger finger, RaycastHit hitInfo)
     {
         if (_isInteractionLocked)
+            return;
+
+        // A sink is not selectable at all — there is nothing to hand out.
+        if (!CanTakeOutBlocks())
             return;
 
         _carrierSelectPub.Publish(new CarrierSelectMessage
@@ -541,13 +553,45 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
         return true;
     }
 
+    /// <summary>A Start carrier is a source: its trigger never picks anything up.</summary>
+    public bool CanTakeInBlocks()
+    {
+        return Mode != CarrierMode.Start;
+    }
+
+    /// <summary>
+    /// An Empty carrier is a sink: what goes in never comes back out, and what it will have is its
+    /// own business rather than the usual colour match — see <see cref="CanTransferBlock"/>.
+    /// </summary>
+    public bool IsSink()
+    {
+        return Mode == CarrierMode.Empty;
+    }
+
+    public bool CanTakeOutBlocks()
+    {
+        return !IsSink();
+    }
+
     public bool CanComplete()
     {
+        // A source only ever hands blocks out, so it never closes — not even when what is left in it
+        // happens to be one colour.
+        if (Mode == CarrierMode.Start) return false;
+
+        // A sink takes any colour, so being full is the only completion rule that means anything.
+        if (Mode == CarrierMode.Empty) return IsFull();
+
         return HasReachedCompleteCount() && AreAllBlocksSameColor();
     }
 
     public bool CanTransferBlock(Block block)
     {
+        if (!CanTakeInBlocks()) return false;
+
+        // A restricted sink takes its one colour and lets everything else ride past.
+        if (IsSink() && OnlyCompatibleColor && block.ColorType != CompatibleColor) return false;
+
         if (_transferHandlers.Count == 0) return true;
         foreach (var handler in _transferHandlers)
             if (!handler.CanTransferBlock(block))

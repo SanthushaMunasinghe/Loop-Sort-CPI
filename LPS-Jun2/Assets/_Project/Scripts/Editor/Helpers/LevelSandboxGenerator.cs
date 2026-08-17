@@ -286,6 +286,44 @@ public static class LevelSandboxGenerator
         return maxBlockCount;
     }
 
+    /// <summary>
+    /// Paints a restricted sink's head with the colour it accepts, and puts every other carrier's head
+    /// back to the prefab material so toggling the option off and pressing the button again cleans up.
+    ///
+    /// This survives Play untouched: Carrier.Awake calls base.Awake — and so OnRent's
+    /// InjectMaterial(_originalMaterial) — before _originalMaterial is read off the head, so that call
+    /// no-ops on a scene carrier's first rent and what is written here stays put.
+    /// </summary>
+    public static void ApplyCarrierHeadColor(Carrier carrier, Colors colors)
+    {
+        var headRenderer = carrier.HeadRenderer;
+        if (headRenderer == null) return;
+
+        var material = default(Material);
+        if (carrier.IsSink() && carrier.OnlyCompatibleColor)
+        {
+            material = colors.Get(carrier.CompatibleColor).Material;
+            if (material == null)
+                Debug.LogWarning($"<b>Level Sandbox</b>: '{carrier.name}' only takes " +
+                                 $"{carrier.CompatibleColor}, which has no entry in the Colors asset. " +
+                                 "Leaving its head alone.", carrier);
+        }
+        else
+        {
+            var source = PrefabUtility.GetCorrespondingObjectFromSource(headRenderer);
+            if (source != null) material = source.sharedMaterials[0];
+        }
+
+        if (material == null) return;
+
+        var materials = headRenderer.sharedMaterials;
+        if (materials.Length == 0 || materials[0] == material) return;
+
+        Undo.RecordObject(headRenderer, "Apply Carrier Modes");
+        materials[0] = material;
+        headRenderer.sharedMaterials = materials;
+    }
+
     private static void ConfigureColliderMesh(GameObject colliderGo, SplineComputer splineComputer,
         SplineMesh sourceMesh, BlockPhysicsConfig.PhysicsType physicsType)
     {

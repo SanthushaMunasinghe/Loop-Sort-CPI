@@ -313,6 +313,9 @@ public sealed class LevelSandboxEditor : Editor
                     untouched++;
                     break;
             }
+
+            // Outside the switch: every carrier either takes the sink tint or gets its head put back.
+            LevelSandboxGenerator.ApplyCarrierHeadColor(carrier, assets.Colors);
         }
 
         Undo.SetCurrentGroupName("Apply Carrier Modes");
