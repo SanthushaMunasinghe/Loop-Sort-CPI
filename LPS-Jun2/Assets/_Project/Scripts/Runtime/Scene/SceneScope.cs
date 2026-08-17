@@ -29,15 +29,13 @@ public sealed class SceneScope : LifetimeScope
     [SerializeField] private ThemeType _theme = ThemeType.Default;
 
     [Header("Colors")]
-    [Tooltip("Palette the level is repainted with when Use Random Colors is on. Needs a matching " +
-             "entry in the Colors asset above; entries that have none are skipped.")]
+    [Tooltip("Palette the level is repainted with every time you press Play. Needs a matching entry " +
+             "in the Colors asset above; entries that have none are skipped.")]
     [SerializeField] private List<ColorType> _blockColors = new();
 
-    [Tooltip("Ignore the colors the level was generated with. Every color group in the scene draws " +
-             "one of Block Colors at random. Draws are independent, so two groups can land on the " +
-             "same color and merge — with only Black and White in the list the whole level is " +
-             "played in black and white.")]
-    [SerializeField] private bool _useRandomColors;
+    [Tooltip("Reroll one of a carrier's color groups when the draw gives it every block in the same " +
+             "color. Needs two usable Block Colors and two groups in the carrier to do anything.")]
+    [SerializeField] private bool _preventSingleColorCarriers = true;
 
     [Header("Scene")]
     [Tooltip("Your camera. InteractionModule raycasts through it — without one there is no input.")]
@@ -61,6 +59,9 @@ public sealed class SceneScope : LifetimeScope
         nameof(BlockCarrierMeshSystem),
         nameof(BlockNextTransferSystem),
     };
+
+    /// <summary>Also what the Sandbox's Apply Carrier Modes button fills a Start carrier from.</summary>
+    public IReadOnlyList<ColorType> BlockColors => _blockColors;
 
     public Camera Camera => _camera;
     public Conveyor Conveyor => _conveyor;
@@ -95,30 +96,32 @@ public sealed class SceneScope : LifetimeScope
     }
 
     /// <summary>
-    /// Repaints the level the scene was generated with, at run time only.
+    /// Repaints every carrier in the level, at run time only.
     ///
-    /// Every block in the scene carries the colour it was generated with in a serialized ColorType,
-    /// and re-applies it in Block.OnRent — which runs from GameBehaviourBase.Awake at execution
-    /// order 0. This scope is at -100, so rewriting the field here lands before any block has
-    /// initialised and the override costs nothing more than the material each block was going to
-    /// apply anyway. The generated scene on disk is left alone; stopping play restores it.
+    /// Each block carries the colour it was generated with in a serialized ColorType and re-applies it
+    /// in Block.OnRent — which runs from GameBehaviourBase.Awake at execution order 0. This scope is
+    /// at -100, so rewriting the field here lands before any block has initialised and the override
+    /// costs nothing more than the material each block was going to apply anyway. The generated scene
+    /// on disk is left alone; stopping play restores it.
     ///
-    /// Blocks are grouped by the colour they currently have, so a whole group is always repainted
-    /// as one and the four-blocks-per-colour invariant survives. Draws are independent per group.
+    /// A carrier's blocks are split into runs of one colour, in the order they sit in BlockParent.
+    /// The generator lays one authored cell down as a run of consecutive same-coloured blocks and the
+    /// Apply Carrier Modes button fills group by group, so a run is exactly one colour group — and two
+    /// adjacent groups that already shared a colour merge into one, which is the right unit anyway.
+    /// Every run draws on its own, so a carrier can come out all one colour unless
+    /// Prevent Single Color Carriers says otherwise.
     /// </summary>
     private void ApplyRandomBlockColors()
     {
-        if (!_useRandomColors) return;
-
         var colors = _data?.OfType<Colors>().FirstOrDefault();
         if (colors == null)
         {
-            Debug.LogWarning($"<b>{nameof(SceneScope)}</b>: Use Random Colors is on but there is no " +
-                             "Colors asset in Data. Playing the level in its generated colors.", this);
+            Debug.LogWarning($"<b>{nameof(SceneScope)}</b>: no Colors asset in Data. Playing the level " +
+                             "in the colors it was generated with.", this);
             return;
         }
 
-        using var p = ListPool<ColorType>.Get(out var palette);
+        using var p1 = ListPool<ColorType>.Get(out var palette);
         foreach (var colorType in _blockColors)
         {
             if (colors.Get(colorType).Material == null)
@@ -133,32 +136,87 @@ public sealed class SceneScope : LifetimeScope
 
         if (palette.Count == 0)
         {
-            Debug.LogWarning($"<b>{nameof(SceneScope)}</b>: Use Random Colors is on but Block Colors " +
-                             "has no usable entry. Playing the level in its generated colors.", this);
+            Debug.LogWarning($"<b>{nameof(SceneScope)}</b>: Block Colors has no usable entry. Playing " +
+                             "the level in the colors it was generated with.", this);
             return;
         }
 
-        var overrides = new Dictionary<ColorType, ColorType>();
-        foreach (var block in FindObjectsOfType<Block>(includeInactive: true))
+        using var p2 = ListPool<string>.Get(out var log);
+        foreach (var carrier in FindObjectsOfType<Carrier>(includeInactive: true))
         {
-            if (block.gameObject.scene != gameObject.scene) continue;
+            if (carrier.gameObject.scene != gameObject.scene) continue;
 
-            var colorType = block.ColorType;
-            if (colorType.Base == BaseColor.None) continue;
-
-            if (!overrides.TryGetValue(colorType, out var overridden))
-            {
-                overridden = palette.GetRandom();
-                overrides[colorType] = overridden;
-            }
-
-            block.OverrideColorType(overridden);
+            var colorTypes = ApplyRandomCarrierColors(carrier, palette);
+            if (colorTypes != null) log.Add($"{carrier.name} [{string.Join(", ", colorTypes)}]");
         }
 
-        if (overrides.Count == 0) return;
+        if (log.Count == 0) return;
 
-        var mapping = string.Join(", ", overrides.Select(pair => $"{pair.Key}→{pair.Value}"));
-        Debug.Log($"<b>{nameof(SceneScope)}</b>: random block colors — {mapping}.", this);
+        Debug.Log($"<b>{nameof(SceneScope)}</b>: random block colors — {string.Join("; ", log)}.", this);
+    }
+
+    /// <summary>
+    /// Draws one palette colour per colour group in the carrier. Returns the colours it landed on, or
+    /// null when the carrier holds no blocks to repaint.
+    /// </summary>
+    private List<ColorType> ApplyRandomCarrierColors(Carrier carrier, List<ColorType> palette)
+    {
+        if (carrier.BlockParent == null) return null;
+
+        using var p = ListPool<List<Block>>.Get(out var groups);
+        var previousColorType = default(ColorType?);
+
+        for (var i = 0; i < carrier.BlockParent.childCount; i++)
+        {
+            var child = carrier.BlockParent.GetChild(i);
+            if (!child.TryGetComponent<Block>(out var block)) continue;
+
+            if (previousColorType == null || previousColorType.Value != block.ColorType)
+                groups.Add(new List<Block>());
+
+            groups[^1].Add(block);
+            previousColorType = block.ColorType;
+        }
+
+        if (groups.Count == 0) return null;
+
+        var colorTypes = new List<ColorType>(groups.Count);
+        foreach (var _ in groups)
+            colorTypes.Add(palette.GetRandom());
+
+        // Every group landing on the same colour makes the whole carrier one solid block of colour,
+        // which is rarely what you want to test against. One redraw is enough to break it up.
+        if (_preventSingleColorCarriers && colorTypes.Count > 1 && palette.Count > 1)
+        {
+            var isSingleColor = true;
+            foreach (var colorType in colorTypes)
+                if (colorType != colorTypes[0])
+                {
+                    isSingleColor = false;
+                    break;
+                }
+
+            // Walking on from the colour that was drawn rather than rerolling: a palette is allowed
+            // to list the same colour twice, and rerolling could then never find a different one.
+            if (isSingleColor)
+            {
+                var start = palette.IndexOf(colorTypes[0]);
+                for (var i = 1; i <= palette.Count; i++)
+                {
+                    var candidate = palette.GetWrapped(start + i);
+                    if (candidate == colorTypes[0]) continue;
+
+                    colorTypes[^1] = candidate;
+                    break;
+                }
+            }
+        }
+
+        for (var i = 0; i < groups.Count; i++)
+        foreach (var block in groups[i])
+            block.OverrideColorType(colorTypes[i]);
+
+        return colorTypes;
     }
 
     protected override void Configure(IContainerBuilder builder)

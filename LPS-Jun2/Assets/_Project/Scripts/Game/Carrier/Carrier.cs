@@ -32,6 +32,11 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
     // SetType still wins for carriers spawned from the sheet.
     [field: SerializeField] public CarrierSheet.CarrierType Type { get; private set; }
 
+    [field: Tooltip("What the Sandbox's Apply Carrier Modes button does to this carrier. Default " +
+                    "leaves it as generated, Start fills it up, Empty clears it out. Nothing at run " +
+                    "time reads this.")]
+    [field: SerializeField] public CarrierMode Mode { get; private set; }
+
     [Inject] private CarrierConfig _config;
     [Inject] private AudioModule _audioModule;
     [Inject] private HapticModule _hapticModule;
@@ -622,6 +627,22 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
     {
         _isTransferMotionDisabled = true;
     }
+}
+
+/// <summary>
+/// What the Sandbox's Apply Carrier Modes button should make of a carrier. Purely an instruction to
+/// that button — selecting, sorting and transfer treat every mode alike.
+/// </summary>
+public enum CarrierMode
+{
+    /// <summary>Left exactly as the level generated it.</summary>
+    Default = 0,
+
+    /// <summary>Filled to the carrier's full block count.</summary>
+    Start = 1,
+
+    /// <summary>Emptied of every block.</summary>
+    Empty = 2,
 }
 
 public struct CarrierSelectMessage

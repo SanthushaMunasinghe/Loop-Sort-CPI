@@ -124,22 +124,10 @@ public static class LevelSandboxGenerator
                 var blockData = blocks.Get(args.Feature);
                 if (blockData.Prefab == null) continue;
 
+                var colorType = levelData.GetColor(args.Color);
                 for (var i = 0; i < groupBlockCount; i++, index++)
-                {
-                    var blockGo = (GameObject)PrefabUtility.InstantiatePrefab(
-                        blockData.Prefab.gameObject, carrier.BlockParent);
-                    var block = blockGo.GetComponent<Block>();
-                    block.name = $"Block {index}";
-
-                    var colorType = levelData.GetColor(args.Color);
-                    block.EditorSetColor(colors, colorType, args.Feature);
-
-                    var coordinate = LevelGeometry.GetBlockCoordinate(index, blockSize);
-                    var blockT = block.transform;
-                    blockT.localPosition = LevelGeometry.CoordinateToLocalPosition(coordinate, blockSize, configSize);
-                    blockT.localRotation = Quaternion.identity;
-                    blockT.localScale = Vector3.one * configSize.ScaleMultiplier;
-                }
+                    CreateCarrierBlock(carrier, blockData.Prefab, colors, colorType, args.Feature,
+                        index, blockSize, configSize);
             }
         }
 
@@ -219,6 +207,83 @@ public static class LevelSandboxGenerator
                   $"spline length {splineLength:F1}.", levelRoot);
 
         return new Result { Root = levelRoot };
+    }
+
+    // ------------------------------------------------------------- carrier blocks
+
+    /// <summary>
+    /// Places one block in a carrier: the prefab, the colour and feature it keeps across a scene save,
+    /// and the slot in the carrier's grid that <paramref name="index"/> maps to.
+    /// </summary>
+    public static Block CreateCarrierBlock(Carrier carrier, Block prefab, Colors colors, ColorType colorType,
+        FeatureType feature, int index, Vector3Int blockSize, CarrierConfig.SizeArgs configSize)
+    {
+        var blockGo = (GameObject)PrefabUtility.InstantiatePrefab(prefab.gameObject, carrier.BlockParent);
+        var block = blockGo.GetComponent<Block>();
+        block.name = $"Block {index}";
+
+        block.EditorSetColor(colors, colorType, feature);
+
+        var coordinate = LevelGeometry.GetBlockCoordinate(index, blockSize);
+        var blockT = block.transform;
+        blockT.localPosition = LevelGeometry.CoordinateToLocalPosition(coordinate, blockSize, configSize);
+        blockT.localRotation = Quaternion.identity;
+        blockT.localScale = Vector3.one * configSize.ScaleMultiplier;
+
+        return block;
+    }
+
+    /// <summary>Removes every block a carrier is holding. Returns how many went.</summary>
+    public static int ClearCarrierBlocks(Carrier carrier)
+    {
+        if (carrier.BlockParent == null) return 0;
+
+        var count = 0;
+        for (var i = carrier.BlockParent.childCount - 1; i >= 0; i--)
+        {
+            var child = carrier.BlockParent.GetChild(i);
+            if (!child.TryGetComponent<Block>(out _)) continue;
+
+            Undo.DestroyObjectImmediate(child.gameObject);
+            count++;
+        }
+
+        return count;
+    }
+
+    /// <summary>
+    /// Clears a carrier and refills it to the block count a full carrier holds, walking the palette
+    /// one entry per colour group so neighbouring groups differ whenever there is more than one
+    /// colour to draw on. Colours here are only what the scene view shows — SceneScope rerolls them
+    /// at run time. Returns how many blocks were placed.
+    /// </summary>
+    public static int FillCarrier(Carrier carrier, Blocks blocks, Colors colors, IReadOnlyList<ColorType> palette,
+        Vector3Int blockSize, int groupBlockCount, CarrierConfig.SizeArgs configSize)
+    {
+        if (carrier.BlockParent == null) return 0;
+
+        var blockData = blocks.Get(FeatureType.None);
+        if (blockData.Prefab == null)
+        {
+            Debug.LogError($"<b>Level Sandbox</b>: Blocks data has no prefab for {nameof(FeatureType)}.None, " +
+                           $"cannot fill '{carrier.name}'.", carrier);
+            return 0;
+        }
+
+        ClearCarrierBlocks(carrier);
+
+        var maxBlockCount = blockSize.x * blockSize.y * blockSize.z;
+        for (var index = 0; index < maxBlockCount; index++)
+        {
+            var group = groupBlockCount > 0 ? index / groupBlockCount : index;
+            var colorType = palette[group % palette.Count];
+            var block = CreateCarrierBlock(carrier, blockData.Prefab, colors, colorType, FeatureType.None,
+                index, blockSize, configSize);
+
+            Undo.RegisterCreatedObjectUndo(block.gameObject, "Apply Carrier Modes");
+        }
+
+        return maxBlockCount;
     }
 
     private static void ConfigureColliderMesh(GameObject colliderGo, SplineComputer splineComputer,

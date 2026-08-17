@@ -187,6 +187,9 @@ public sealed class LevelSandboxEditor : Editor
                 if (GUILayout.Button("Clear Level"))
                     ClearLevel();
 
+                if (GUILayout.Button("Apply Carrier Modes"))
+                    ApplyCarrierModes();
+
                 if (GUILayout.Button("Frame Camera On Level"))
                     FrameCamera();
             }
@@ -243,6 +246,116 @@ public sealed class LevelSandboxEditor : Editor
         serializedObject.Update();
 
         FrameCamera();
+    }
+
+    /// <summary>
+    /// Reshapes the generated carriers to match the Mode each one is set to: Start is filled up,
+    /// Empty is cleared out, Default is left alone. Only block counts change — the colours are the
+    /// scene view's, and SceneScope rerolls them every time you press Play.
+    /// </summary>
+    private void ApplyCarrierModes()
+    {
+        var carriersRoot = Sandbox.CarriersRoot;
+        if (carriersRoot == null)
+        {
+            Debug.LogError("<b>Level Sandbox</b>: no carriers root. Press Spawn Level first.", Sandbox);
+            return;
+        }
+
+        var scope = FindScope();
+        if (scope == null)
+        {
+            Debug.LogError("<b>Level Sandbox</b>: no SceneScope. Press Set Up Scene first.", Sandbox);
+            return;
+        }
+
+        if (!ResolveDataAssets(scope, out var assets)) return;
+
+        var palette = ResolveFillPalette(scope, assets.Colors, carriersRoot);
+        if (palette.Count == 0)
+        {
+            Debug.LogError("<b>Level Sandbox</b>: no colors to fill with. Add entries to SceneScope's " +
+                           "Block Colors, or generate a level that has some.", Sandbox);
+            return;
+        }
+
+        // Every block created and destroyed below registers its own undo step; collapsing them makes
+        // one Ctrl+Z put the level back.
+        var undoGroup = Undo.GetCurrentGroup();
+
+        // Same stub defaults the generator runs with, so a filled carrier matches a generated one.
+        var physicsType = new BlockPhysicsConfig().Type;
+        var carrierBlockArgs = Sandbox.CarrierBlockArgs;
+        var blockSize = LevelGeometry.GetBlockSize(carrierBlockArgs);
+        var groupBlockCount = LevelGeometry.GetGroupBlockCount(assets.CarrierConfig, physicsType, carrierBlockArgs);
+        var configSize = assets.CarrierConfig.Sizes[physicsType];
+
+        var filled = 0;
+        var emptied = 0;
+        var untouched = 0;
+
+        foreach (var carrier in carriersRoot.GetComponentsInChildren<Carrier>(true))
+        {
+            switch (carrier.Mode)
+            {
+                case CarrierMode.Start:
+                    LevelSandboxGenerator.FillCarrier(carrier, assets.Blocks, assets.Colors, palette,
+                        blockSize, groupBlockCount, configSize);
+                    filled++;
+                    break;
+
+                case CarrierMode.Empty:
+                    LevelSandboxGenerator.ClearCarrierBlocks(carrier);
+                    emptied++;
+                    break;
+
+                default:
+                    untouched++;
+                    break;
+            }
+        }
+
+        Undo.SetCurrentGroupName("Apply Carrier Modes");
+        Undo.CollapseUndoOperations(undoGroup);
+
+        EditorSceneManager.MarkSceneDirty(Sandbox.gameObject.scene);
+
+        Debug.Log($"<b>Level Sandbox</b>: applied carrier modes — {filled} filled, {emptied} emptied, " +
+                  $"{untouched} left as generated.", Sandbox);
+    }
+
+    /// <summary>
+    /// SceneScope's Block Colors when it has any, otherwise the colours the level was generated with,
+    /// so the button still works before that list is filled in. Colours with no material in the Colors
+    /// asset are dropped — they would render as missing.
+    /// </summary>
+    private static List<ColorType> ResolveFillPalette(SceneScope scope, Colors colors, Transform carriersRoot)
+    {
+        var palette = new List<ColorType>();
+
+        foreach (var colorType in scope.BlockColors)
+        {
+            if (colors.Get(colorType).Material == null)
+            {
+                Debug.LogWarning($"<b>Level Sandbox</b>: Block Colors entry {colorType} has no entry in " +
+                                 "the Colors asset, skipping it.", scope);
+                continue;
+            }
+
+            if (!palette.Contains(colorType)) palette.Add(colorType);
+        }
+
+        if (palette.Count > 0) return palette;
+
+        foreach (var block in carriersRoot.GetComponentsInChildren<Block>(true))
+        {
+            if (block.ColorType.Base == BaseColor.None) continue;
+            if (palette.Contains(block.ColorType)) continue;
+            if (colors.Get(block.ColorType).Material == null) continue;
+            palette.Add(block.ColorType);
+        }
+
+        return palette;
     }
 
     private void ClearLevel()
