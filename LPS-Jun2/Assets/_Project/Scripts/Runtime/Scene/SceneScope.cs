@@ -28,6 +28,17 @@ public sealed class SceneScope : LifetimeScope
     [Tooltip("Visual theme handed to every GameBehaviourBase.")]
     [SerializeField] private ThemeType _theme = ThemeType.Default;
 
+    [Header("Colors")]
+    [Tooltip("Palette the level is repainted with when Use Random Colors is on. Needs a matching " +
+             "entry in the Colors asset above; entries that have none are skipped.")]
+    [SerializeField] private List<ColorType> _blockColors = new();
+
+    [Tooltip("Ignore the colors the level was generated with. Every color group in the scene draws " +
+             "one of Block Colors at random. Draws are independent, so two groups can land on the " +
+             "same color and merge — with only Black and White in the list the whole level is " +
+             "played in black and white.")]
+    [SerializeField] private bool _useRandomColors;
+
     [Header("Scene")]
     [Tooltip("Your camera. InteractionModule raycasts through it — without one there is no input.")]
     [SerializeField] private Camera _camera;
@@ -69,11 +80,85 @@ public sealed class SceneScope : LifetimeScope
     }
 #endif
 
+    protected override void Awake()
+    {
+        base.Awake();
+
+        ApplyRandomBlockColors();
+    }
+
     protected override void OnDestroy()
     {
         base.OnDestroy();
 
         _world?.Dispose();
+    }
+
+    /// <summary>
+    /// Repaints the level the scene was generated with, at run time only.
+    ///
+    /// Every block in the scene carries the colour it was generated with in a serialized ColorType,
+    /// and re-applies it in Block.OnRent — which runs from GameBehaviourBase.Awake at execution
+    /// order 0. This scope is at -100, so rewriting the field here lands before any block has
+    /// initialised and the override costs nothing more than the material each block was going to
+    /// apply anyway. The generated scene on disk is left alone; stopping play restores it.
+    ///
+    /// Blocks are grouped by the colour they currently have, so a whole group is always repainted
+    /// as one and the four-blocks-per-colour invariant survives. Draws are independent per group.
+    /// </summary>
+    private void ApplyRandomBlockColors()
+    {
+        if (!_useRandomColors) return;
+
+        var colors = _data?.OfType<Colors>().FirstOrDefault();
+        if (colors == null)
+        {
+            Debug.LogWarning($"<b>{nameof(SceneScope)}</b>: Use Random Colors is on but there is no " +
+                             "Colors asset in Data. Playing the level in its generated colors.", this);
+            return;
+        }
+
+        using var p = ListPool<ColorType>.Get(out var palette);
+        foreach (var colorType in _blockColors)
+        {
+            if (colors.Get(colorType).Material == null)
+            {
+                Debug.LogWarning($"<b>{nameof(SceneScope)}</b>: Block Colors entry {colorType} has no " +
+                                 "entry in the Colors asset, skipping it.", this);
+                continue;
+            }
+
+            palette.Add(colorType);
+        }
+
+        if (palette.Count == 0)
+        {
+            Debug.LogWarning($"<b>{nameof(SceneScope)}</b>: Use Random Colors is on but Block Colors " +
+                             "has no usable entry. Playing the level in its generated colors.", this);
+            return;
+        }
+
+        var overrides = new Dictionary<ColorType, ColorType>();
+        foreach (var block in FindObjectsOfType<Block>(includeInactive: true))
+        {
+            if (block.gameObject.scene != gameObject.scene) continue;
+
+            var colorType = block.ColorType;
+            if (colorType.Base == BaseColor.None) continue;
+
+            if (!overrides.TryGetValue(colorType, out var overridden))
+            {
+                overridden = palette.GetRandom();
+                overrides[colorType] = overridden;
+            }
+
+            block.OverrideColorType(overridden);
+        }
+
+        if (overrides.Count == 0) return;
+
+        var mapping = string.Join(", ", overrides.Select(pair => $"{pair.Key}→{pair.Value}"));
+        Debug.Log($"<b>{nameof(SceneScope)}</b>: random block colors — {mapping}.", this);
     }
 
     protected override void Configure(IContainerBuilder builder)

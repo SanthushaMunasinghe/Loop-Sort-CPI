@@ -61,6 +61,16 @@ public sealed partial class Block : GameBehaviourBase
         SetNormalColor();
     }
 
+    /// <summary>
+    /// Swaps the colour a generated block was saved with, before anything has been injected — which
+    /// is why this touches the field only. SceneScope calls it from its own Awake, ahead of the
+    /// OnRent above, and that is what puts the new material on.
+    /// </summary>
+    public void OverrideColorType(ColorType colorType)
+    {
+        ColorType = colorType;
+    }
+
     public void SetNormalColor()
     {
         InjectColorType(ColorType);
