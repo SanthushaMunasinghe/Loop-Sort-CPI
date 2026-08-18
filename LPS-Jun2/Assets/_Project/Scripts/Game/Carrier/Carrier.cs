@@ -174,11 +174,11 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
         _blocks.Clear();
         _idxByBlock.Clear();
 
-        for (var i = 0; i < BlockParent.childCount; i++)
-        {
-            var child = BlockParent.GetChild(i);
-            if (!child.TryGetComponent<Block>(out var block)) continue;
+        using var pooled = UnityEngine.Pool.ListPool<Block>.Get(out var authoredBlocks);
+        GetAuthoredBlocksInOrder(BlockParent, authoredBlocks);
 
+        foreach (var block in authoredBlocks)
+        {
             block.SetContainer(this);
 
             block.Rigidbody.isKinematic = true;
@@ -195,6 +195,25 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
         }
 
         if (CanComplete()) SetComplete();
+    }
+
+    /// <summary>
+    /// Walks blockParent's children in hierarchy order collecting every Block, recursing into any
+    /// child that isn't a Block itself. Flat carriers have blocks as direct children; the Sandbox's
+    /// Apply Carrier Modes Start fill groups them one level deeper under a container per group block
+    /// (see LevelSandboxGenerator.FillCarrier), so this keeps every reader of a carrier's authored
+    /// blocks working the same way for both layouts.
+    /// </summary>
+    public static void GetAuthoredBlocksInOrder(Transform blockParent, List<Block> result)
+    {
+        for (var i = 0; i < blockParent.childCount; i++)
+        {
+            var child = blockParent.GetChild(i);
+            if (child.TryGetComponent<Block>(out var block))
+                result.Add(block);
+            else
+                GetAuthoredBlocksInOrder(child, result);
+        }
     }
 
     public async UniTask AddBlock(Block block, float delay = 0f, bool motion = true)

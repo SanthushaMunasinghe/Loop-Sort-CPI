@@ -213,27 +213,39 @@ public static class LevelSandboxGenerator
 
     /// <summary>
     /// Places one block in a carrier: the prefab, the colour and feature it keeps across a scene save,
-    /// and the slot in the carrier's grid that <paramref name="index"/> maps to.
+    /// and the slot in the carrier's grid that <paramref name="index"/> maps to. The block's position
+    /// and rotation are always computed in carrier.BlockParent's frame, regardless of which transform
+    /// it is actually parented under — see <paramref name="parent"/>.
     /// </summary>
+    /// <param name="parent">
+    /// Where the block is parented. Defaults to carrier.BlockParent; FillCarrier passes a per-group
+    /// container instead so the block still lands on its usual grid position and rotation.
+    /// </param>
     public static Block CreateCarrierBlock(Carrier carrier, Block prefab, Colors colors, ColorType colorType,
-        FeatureType feature, int index, Vector3Int blockSize, CarrierConfig.SizeArgs configSize)
+        FeatureType feature, int index, Vector3Int blockSize, CarrierConfig.SizeArgs configSize,
+        Transform parent = null)
     {
-        var blockGo = (GameObject)PrefabUtility.InstantiatePrefab(prefab.gameObject, carrier.BlockParent);
+        parent ??= carrier.BlockParent;
+
+        var blockGo = (GameObject)PrefabUtility.InstantiatePrefab(prefab.gameObject, parent);
         var block = blockGo.GetComponent<Block>();
         block.name = $"Block {index}";
 
         block.EditorSetColor(colors, colorType, feature);
 
         var coordinate = LevelGeometry.GetBlockCoordinate(index, blockSize);
+        var localPosition = LevelGeometry.CoordinateToLocalPosition(coordinate, blockSize, configSize);
         var blockT = block.transform;
-        blockT.localPosition = LevelGeometry.CoordinateToLocalPosition(coordinate, blockSize, configSize);
-        blockT.localRotation = Quaternion.identity;
+        blockT.SetPositionAndRotation(carrier.BlockParent.TransformPoint(localPosition), carrier.BlockParent.rotation);
         blockT.localScale = Vector3.one * configSize.ScaleMultiplier;
 
         return block;
     }
 
-    /// <summary>Removes every block a carrier is holding. Returns how many went.</summary>
+    /// <summary>
+    /// Removes every block a carrier is holding, including ones grouped under a
+    /// CarrierBlockGroupParent container by FillCarrier's Start fill. Returns how many blocks went.
+    /// </summary>
     public static int ClearCarrierBlocks(Carrier carrier)
     {
         if (carrier.BlockParent == null) return 0;
@@ -242,10 +254,31 @@ public static class LevelSandboxGenerator
         for (var i = carrier.BlockParent.childCount - 1; i >= 0; i--)
         {
             var child = carrier.BlockParent.GetChild(i);
-            if (!child.TryGetComponent<Block>(out _)) continue;
 
-            Undo.DestroyObjectImmediate(child.gameObject);
-            count++;
+            if (child.TryGetComponent<Block>(out _))
+            {
+                Undo.DestroyObjectImmediate(child.gameObject);
+                count++;
+                continue;
+            }
+
+            if (child.TryGetComponent<CarrierBlockGroupParent>(out _))
+            {
+                count += CountBlocks(child);
+                Undo.DestroyObjectImmediate(child.gameObject);
+            }
+        }
+
+        return count;
+    }
+
+    private static int CountBlocks(Transform parent)
+    {
+        var count = 0;
+        for (var i = 0; i < parent.childCount; i++)
+        {
+            var child = parent.GetChild(i);
+            count += child.TryGetComponent<Block>(out _) ? 1 : CountBlocks(child);
         }
 
         return count;
@@ -256,6 +289,10 @@ public static class LevelSandboxGenerator
     /// one entry per colour group so neighbouring groups differ whenever there is more than one
     /// colour to draw on. Colours here are only what the scene view shows — SceneScope rerolls them
     /// at run time. Returns how many blocks were placed.
+    ///
+    /// Each colour group's blocks are parented under their own CarrierBlockGroupParent container
+    /// (a child of carrier.BlockParent), positioned at the matching GroupBlocks entry's exact world
+    /// position — the visual mesh this fill is standing in for until the carrier actually plays.
     /// </summary>
     public static int FillCarrier(Carrier carrier, Blocks blocks, Colors colors, IReadOnlyList<ColorType> palette,
         Vector3Int blockSize, int groupBlockCount, CarrierConfig.SizeArgs configSize)
@@ -273,17 +310,47 @@ public static class LevelSandboxGenerator
         ClearCarrierBlocks(carrier);
 
         var maxBlockCount = blockSize.x * blockSize.y * blockSize.z;
+        Transform groupParent = null;
+        var currentGroup = -1;
+
         for (var index = 0; index < maxBlockCount; index++)
         {
             var group = groupBlockCount > 0 ? index / groupBlockCount : index;
+            if (group != currentGroup)
+            {
+                currentGroup = group;
+                groupParent = CreateGroupParent(carrier, group);
+            }
+
             var colorType = palette[group % palette.Count];
             var block = CreateCarrierBlock(carrier, blockData.Prefab, colors, colorType, FeatureType.None,
-                index, blockSize, configSize);
+                index, blockSize, configSize, groupParent);
 
             Undo.RegisterCreatedObjectUndo(block.gameObject, "Apply Carrier Modes");
         }
 
         return maxBlockCount;
+    }
+
+    /// <summary>
+    /// One CarrierBlockGroupParent container per colour group, parented under BlockParent and placed
+    /// at the matching carrier.GroupBlocks entry's exact world position. Falls back to BlockParent's
+    /// own position if the carrier has fewer GroupBlocks entries than groups being filled.
+    /// </summary>
+    private static Transform CreateGroupParent(Carrier carrier, int groupIndex)
+    {
+        var go = new GameObject($"Group {groupIndex}", typeof(CarrierBlockGroupParent));
+        Undo.RegisterCreatedObjectUndo(go, "Apply Carrier Modes");
+
+        var t = go.transform;
+        t.SetParent(carrier.BlockParent, worldPositionStays: false);
+        t.rotation = carrier.BlockParent.rotation;
+        t.localScale = Vector3.one;
+
+        if (groupIndex >= 0 && groupIndex < carrier.GroupBlocks.Count)
+            t.position = carrier.GroupBlocks[groupIndex].transform.position;
+
+        return t;
     }
 
     /// <summary>

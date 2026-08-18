@@ -164,13 +164,13 @@ public sealed class SceneScope : LifetimeScope
         if (carrier.BlockParent == null) return null;
 
         using var p = ListPool<List<Block>>.Get(out var groups);
+        using var pBlocks = ListPool<Block>.Get(out var authoredBlocks);
+        Carrier.GetAuthoredBlocksInOrder(carrier.BlockParent, authoredBlocks);
+
         var previousColorType = default(ColorType?);
 
-        for (var i = 0; i < carrier.BlockParent.childCount; i++)
+        foreach (var block in authoredBlocks)
         {
-            var child = carrier.BlockParent.GetChild(i);
-            if (!child.TryGetComponent<Block>(out var block)) continue;
-
             if (previousColorType == null || previousColorType.Value != block.ColorType)
                 groups.Add(new List<Block>());
 
