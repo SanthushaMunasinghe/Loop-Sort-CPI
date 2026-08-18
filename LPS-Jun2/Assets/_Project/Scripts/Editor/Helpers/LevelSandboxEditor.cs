@@ -472,6 +472,13 @@ public sealed class LevelSandboxEditor : Editor
             return;
         }
 
+        if (scope.BlockColors.Count == 0)
+        {
+            Debug.LogError("<b>Level Sandbox</b>: SceneScope has no Block Colors to randomize a " +
+                           "Compatible Color from. Add entries to Block Colors first.", scope);
+            return;
+        }
+
         var undoGroup = Undo.GetCurrentGroup();
 
         var existing = LevelSandboxGenerator.FindRowCarriers(rowParents);
@@ -479,7 +486,8 @@ public sealed class LevelSandboxEditor : Editor
         LevelSandboxGenerator.DestroyCarriers(existing);
 
         var created = LevelSandboxGenerator.GenerateEmptyCarrierRows(rowParents, Sandbox.EmptyCarriersPerRow,
-            Sandbox.EmptyCarrierSpacing, Sandbox.EmptyCarrierPositiveZ, Sandbox.EmptyCarrierScale, carrierPrefab);
+            Sandbox.EmptyCarrierSpacing, Sandbox.EmptyCarrierPositiveZ, Sandbox.EmptyCarrierScale,
+            scope.BlockColors, carrierPrefab);
         AddToEmptyCarriers(scope, created);
 
         Undo.SetCurrentGroupName("Generate Empty Carrier Rows");

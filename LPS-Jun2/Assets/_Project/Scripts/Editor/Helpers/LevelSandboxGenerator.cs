@@ -243,7 +243,7 @@ public static class LevelSandboxGenerator
     /// row lands exactly on the row parent's position; the rest step along its local Z axis.
     /// </summary>
     public static List<Carrier> GenerateEmptyCarrierRows(IReadOnlyList<Transform> rowParents, int countPerRow,
-        float spacing, bool positiveZ, float scale, Carrier carrierPrefab)
+        float spacing, bool positiveZ, float scale, IReadOnlyList<ColorType> blockColors, Carrier carrierPrefab)
     {
         var created = new List<Carrier>();
         if (rowParents == null) return created;
@@ -270,6 +270,7 @@ public static class LevelSandboxGenerator
                 LevelGeometry.ApplyPivot(carrier.transform, carrier.Pivot, placement);
                 carrier.transform.localScale = Vector3.one * scale;
                 carrier.EditorSetMode(CarrierMode.Empty);
+                carrier.EditorSetCompatibleColor(blockColors[Random.Range(0, blockColors.Count)], true);
 
                 Undo.RegisterCreatedObjectUndo(carrierGo, "Generate Empty Carrier Rows");
                 created.Add(carrier);

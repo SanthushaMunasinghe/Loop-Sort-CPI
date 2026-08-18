@@ -193,6 +193,14 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
         Mode = mode;
         UnityEditor.EditorUtility.SetDirty(this);
     }
+
+    /// <summary>Used by the Empty Carrier Rows generator to set up a randomized colour sink.</summary>
+    public void EditorSetCompatibleColor(ColorType colorType, bool onlyCompatibleColor)
+    {
+        CompatibleColor = colorType;
+        OnlyCompatibleColor = onlyCompatibleColor;
+        UnityEditor.EditorUtility.SetDirty(this);
+    }
 #endif
 
     /// <summary>
