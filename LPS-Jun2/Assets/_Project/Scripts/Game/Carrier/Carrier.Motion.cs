@@ -1,14 +1,20 @@
+using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using LitMotion;
 using LitMotion.Extensions;
 using StatefulUISupport.Scripts.Components;
 using UnityEngine;
+using UnityEngine.Pool;
 
 public partial class Carrier
 {
     private readonly CompositeMotionHandle _backMotions = new();
     private readonly CompositeMotionHandle _addBlockMotions = new();
     private readonly CompositeMotionHandle _transferMotions = new();
+    private readonly CompositeMotionHandle _groupSlideMotions = new();
+
+    private readonly List<Vector3> _originalGroupContainerPositions = new();
+    private readonly List<Vector3> _originalGroupBlockPositions = new();
 
     public async UniTaskVoid ApplyOpenBackMotion(bool immediate = false)
     {
@@ -179,5 +185,129 @@ public partial class Carrier
             .WithEase(Ease.InOutBack)
             .BindToLocalEulerAnglesZ(t);
         t.localScale = Vector3.zero;
+    }
+
+    /// <summary>
+    /// Snapshots every CarrierBlockGroupParent container's and GroupBlocks/GroupBlockFilters
+    /// entry's pristine world position, so ApplyGroupSlideMotion always has an absolute baseline to
+    /// slide from rather than compounding off wherever an object currently sits. Called on rent —
+    /// before any transfer can happen — so it always captures the authored/generated layout.
+    /// </summary>
+    private void CaptureGroupSlideOriginals()
+    {
+        _originalGroupContainerPositions.Clear();
+        _originalGroupBlockPositions.Clear();
+
+        if (BlockParent == null) return;
+
+        for (var i = 0; i < BlockParent.childCount; i++)
+        {
+            var child = BlockParent.GetChild(i);
+            if (child.TryGetComponent<CarrierBlockGroupParent>(out _))
+                _originalGroupContainerPositions.Add(child.position);
+        }
+
+        foreach (var groupBlock in GroupBlocks)
+            _originalGroupBlockPositions.Add(groupBlock.transform.position);
+    }
+
+    /// <summary>Puts every group container and GroupBlocks entry back at its captured original spot.</summary>
+    private void RestoreGroupSlidePositions()
+    {
+        _groupSlideMotions.Cancel();
+
+        if (BlockParent == null) return;
+
+        var containerIndex = 0;
+        for (var i = 0; i < BlockParent.childCount; i++)
+        {
+            var child = BlockParent.GetChild(i);
+            if (!child.TryGetComponent<CarrierBlockGroupParent>(out _)) continue;
+            if (containerIndex < _originalGroupContainerPositions.Count)
+                child.position = _originalGroupContainerPositions[containerIndex];
+            containerIndex++;
+        }
+
+        for (var i = 0; i < GroupBlocks.Count && i < _originalGroupBlockPositions.Count; i++)
+            GroupBlocks[i].transform.position = _originalGroupBlockPositions[i];
+
+        _originalGroupContainerPositions.Clear();
+        _originalGroupBlockPositions.Clear();
+    }
+
+    /// <summary>
+    /// Start mode only. After a transfer batch finishes, counts how many trailing
+    /// CarrierBlockGroupParent groups are now fully empty and, if any are, slides every remaining
+    /// group's container and matching GroupBlocks/GroupBlockFilters visual to an absolute target
+    /// computed off its captured original position — never off wherever it currently sits, so
+    /// repeated slides don't compound. Blocks new transfers on this carrier for the duration, via a
+    /// token distinct from carrier.gameObject (ShuffleBoosterSystem already uses that one). No-ops
+    /// for carriers with no CarrierBlockGroupParent containers — anything not filled via the
+    /// Sandbox's Start-mode Apply Carrier Modes.
+    /// </summary>
+    public async UniTaskVoid ApplyGroupSlideMotion()
+    {
+        if (Mode != CarrierMode.Start) return;
+        if (BlockParent == null) return;
+        if (_originalGroupContainerPositions.Count == 0) return;
+
+        using var pooled = ListPool<Transform>.Get(out var containers);
+        for (var i = 0; i < BlockParent.childCount; i++)
+        {
+            var child = BlockParent.GetChild(i);
+            if (child.TryGetComponent<CarrierBlockGroupParent>(out _))
+                containers.Add(child);
+        }
+        if (containers.Count == 0) return;
+
+        var emptiedCount = 0;
+        for (var i = containers.Count - 1; i >= 0; i--)
+        {
+            if (containers[i].childCount > 0) break;
+            emptiedCount++;
+        }
+        if (emptiedCount == 0) return;
+        if (GroupBlocks.Count < 2) return;
+
+        var remainingCount = containers.Count - emptiedCount;
+        if (remainingCount <= 0) return;
+
+        var delta = GroupBlocks[1].transform.position - GroupBlocks[0].transform.position;
+        if (delta == Vector3.zero) return;
+
+        _groupSlideMotions.Cancel();
+        DisableTransfer(BlockParent.gameObject);
+        try
+        {
+            var duration = _sceneScope.GroupSlideDuration;
+            using var pTasks = ListPool<UniTask>.Get(out var tasks);
+            for (var i = 0; i < remainingCount; i++)
+            {
+                var containerT = containers[i];
+                var containerTarget = _originalGroupContainerPositions[i] + delta * emptiedCount;
+                tasks.Add(LMotion.Create(containerT.position, containerTarget, duration)
+                    .BindToPosition(containerT)
+                    .AddTo(this)
+                    .AddTo(_groupSlideMotions)
+                    .ToUniTask(ReturnToken));
+
+                if (i < GroupBlocks.Count && i < _originalGroupBlockPositions.Count)
+                {
+                    var meshT = GroupBlocks[i].transform;
+                    var meshTarget = _originalGroupBlockPositions[i] + delta * emptiedCount;
+                    tasks.Add(LMotion.Create(meshT.position, meshTarget, duration)
+                        .BindToPosition(meshT)
+                        .AddTo(this)
+                        .AddTo(_groupSlideMotions)
+                        .ToUniTask(ReturnToken));
+                }
+            }
+
+            await UniTask.WhenAll(tasks);
+        }
+        finally
+        {
+            EnableTransfer(BlockParent.gameObject);
+        }
     }
 }

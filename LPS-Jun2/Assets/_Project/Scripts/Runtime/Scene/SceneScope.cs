@@ -37,6 +37,11 @@ public sealed class SceneScope : LifetimeScope
              "color. Needs two usable Block Colors and two groups in the carrier to do anything.")]
     [SerializeField] private bool _preventSingleColorCarriers = true;
 
+    [Header("Carriers")]
+    [Tooltip("Start mode: how long the group slide-forward animation takes after a transfer batch " +
+             "fully drains a colour group.")]
+    [SerializeField] private float _groupSlideDuration = .25f;
+
     [Header("Scene")]
     [Tooltip("Your camera. InteractionModule raycasts through it — without one there is no input.")]
     [SerializeField] private Camera _camera;
@@ -62,6 +67,8 @@ public sealed class SceneScope : LifetimeScope
 
     /// <summary>Also what the Sandbox's Apply Carrier Modes button fills a Start carrier from.</summary>
     public IReadOnlyList<ColorType> BlockColors => _blockColors;
+
+    public float GroupSlideDuration => _groupSlideDuration;
 
     public Camera Camera => _camera;
     public Conveyor Conveyor => _conveyor;

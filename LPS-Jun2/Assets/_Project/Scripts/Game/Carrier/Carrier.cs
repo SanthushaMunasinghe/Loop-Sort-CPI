@@ -61,6 +61,7 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
     [Inject] private Conveyor _conveyor;
     [Inject] private RemoteConfigModule _remoteConfigModule;
     [Inject] private CarrierConfig _carrierConfig;
+    [Inject] private SceneScope _sceneScope;
 
     [Inject] private IPublisher<CarrierSelectMessage> _carrierSelectPub;
     [Inject] private IPublisher<CarrierCompleteMessage> _carrierCompletePub;
@@ -68,6 +69,8 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
     [Inject] private IPublisher<CarrierRemoveBlockMessage> _carrierRemoveBlockPub;
     [Inject] private IPublisher<CarrierInteractUpdateMessage> _carrierInteractUpdatePub;
     [Inject] private IPublisher<BlockCarrierMeshUpdateMessage> _blockCarrierMeshUpdatePub;
+
+    [Inject] private ISubscriber<BlockTransferCompleteMessage> _blockTransferCompleteSub;
 
     private Material _originalMaterial;
     private BlockPhysicsConfig _blockPhysicsConfig;
@@ -111,6 +114,8 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
         foreach (var groupBlock in GroupBlocks)
             groupBlock.gameObject.SetActive(false);
 
+        CaptureGroupSlideOriginals();
+
         Highlight.SetActive(false);
 
         _blockPhysicsActives = World.GetStash<BlockPhysicsActive>();
@@ -136,6 +141,22 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
         _addingBlockCount = 0;
         _customMaxBlockCount = 0;
         _originalPosition = null;
+
+        RestoreGroupSlidePositions();
+    }
+
+    protected override void BuildMessages(DisposableBagBuilder bag)
+    {
+        base.BuildMessages(bag);
+
+        _blockTransferCompleteSub.Subscribe(OnBlockTransferComplete).AddTo(bag);
+    }
+
+    private void OnBlockTransferComplete(BlockTransferCompleteMessage m)
+    {
+        if (m.Carrier != this) return;
+
+        ApplyGroupSlideMotion();
     }
 
     public void Interact(LeanFinger finger, RaycastHit hitInfo)
