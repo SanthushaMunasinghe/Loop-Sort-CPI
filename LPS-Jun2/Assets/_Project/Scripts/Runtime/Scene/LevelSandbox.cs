@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using MessagePipe;
 using UnityEngine;
@@ -34,6 +35,23 @@ public sealed class LevelSandbox : MonoBehaviour
     [SerializeField] private float _slotCollisionDistance;
     [SerializeField] private int _lengthBasedSlotCount;
 
+    [Header("Empty Carrier Rows (Sandbox Editing)")]
+    [Tooltip("Row parent transforms, placed by hand. Each gets its own row of generated empty " +
+             "carriers, parented directly to it.")]
+    [SerializeField] private List<Transform> _emptyCarrierRowParents = new();
+
+    [Tooltip("Empty carriers generated per row.")]
+    [SerializeField] private int _emptyCarriersPerRow = 4;
+
+    [Tooltip("Gap between each row's carriers, along the row parent's local Z axis.")]
+    [SerializeField] private float _emptyCarrierSpacing = 1f;
+
+    [Tooltip("Row direction along the row parent's local Z axis. On = +Z, off = -Z.")]
+    [SerializeField] private bool _emptyCarrierPositiveZ = true;
+
+    [Tooltip("Uniform local scale applied to each spawned empty carrier.")]
+    [SerializeField] private float _emptyCarrierScale = 1f;
+
     [Inject] private SceneScope _sceneScope;
 
     [Inject] private IPublisher<LevelBuildCompleteMessage> _levelBuildCompletePub;
@@ -50,6 +68,12 @@ public sealed class LevelSandbox : MonoBehaviour
     public float ConveyorSpeed => _conveyorSpeed;
     public float SlotCollisionDistance => _slotCollisionDistance;
     public int LengthBasedSlotCount => _lengthBasedSlotCount;
+
+    public IReadOnlyList<Transform> EmptyCarrierRowParents => _emptyCarrierRowParents;
+    public int EmptyCarriersPerRow => _emptyCarriersPerRow;
+    public float EmptyCarrierSpacing => _emptyCarrierSpacing;
+    public bool EmptyCarrierPositiveZ => _emptyCarrierPositiveZ;
+    public float EmptyCarrierScale => _emptyCarrierScale;
 
     private void Awake()
     {

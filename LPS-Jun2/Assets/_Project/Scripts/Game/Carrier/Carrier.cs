@@ -186,6 +186,13 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
         Type = carrierType;
         UnityEditor.EditorUtility.SetDirty(this);
     }
+
+    /// <summary>Used by the Empty Carrier Rows generator to mark spawned carriers as sinks.</summary>
+    public void EditorSetMode(CarrierMode mode)
+    {
+        Mode = mode;
+        UnityEditor.EditorUtility.SetDirty(this);
+    }
 #endif
 
     /// <summary>

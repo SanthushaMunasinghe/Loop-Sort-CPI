@@ -209,6 +209,76 @@ public static class LevelSandboxGenerator
         return new Result { Root = levelRoot };
     }
 
+    // ------------------------------------------------------------- empty carrier rows
+
+    /// <summary>
+    /// Direct-child carriers of the given row parents — exactly what GenerateEmptyCarrierRows owns,
+    /// never anything under CarriersRoot. Pure query, no side effects.
+    /// </summary>
+    public static List<Carrier> FindRowCarriers(IReadOnlyList<Transform> rowParents)
+    {
+        var result = new List<Carrier>();
+        if (rowParents == null) return result;
+
+        foreach (var rowParent in rowParents)
+        {
+            if (rowParent == null) continue;
+
+            for (var i = rowParent.childCount - 1; i >= 0; i--)
+                if (rowParent.GetChild(i).TryGetComponent<Carrier>(out var carrier))
+                    result.Add(carrier);
+        }
+
+        return result;
+    }
+
+    public static void DestroyCarriers(IEnumerable<Carrier> carriers)
+    {
+        foreach (var carrier in carriers)
+            Undo.DestroyObjectImmediate(carrier.gameObject);
+    }
+
+    /// <summary>
+    /// Spawns one row of evenly spaced empty carriers under each row parent. The first carrier in a
+    /// row lands exactly on the row parent's position; the rest step along its local Z axis.
+    /// </summary>
+    public static List<Carrier> GenerateEmptyCarrierRows(IReadOnlyList<Transform> rowParents, int countPerRow,
+        float spacing, bool positiveZ, float scale, Carrier carrierPrefab)
+    {
+        var created = new List<Carrier>();
+        if (rowParents == null) return created;
+
+        var sign = positiveZ ? 1f : -1f;
+
+        foreach (var rowParent in rowParents)
+        {
+            if (rowParent == null) continue;
+
+            for (var i = 0; i < countPerRow; i++)
+            {
+                var carrierGo = (GameObject)PrefabUtility.InstantiatePrefab(carrierPrefab.gameObject, rowParent);
+                var carrier = carrierGo.GetComponent<Carrier>();
+                carrier.name = $"Empty Carrier {i}";
+
+                var localOffset = new Vector3(0f, 0f, sign * spacing * i);
+                var placement = new LevelGeometry.CarrierPlacement
+                {
+                    Type = CarrierSheet.CarrierType.None,
+                    Position = rowParent.TransformPoint(localOffset),
+                    Rotation = rowParent.rotation * Quaternion.Euler(0f, 180f, 0f),
+                };
+                LevelGeometry.ApplyPivot(carrier.transform, carrier.Pivot, placement);
+                carrier.transform.localScale = Vector3.one * scale;
+                carrier.EditorSetMode(CarrierMode.Empty);
+
+                Undo.RegisterCreatedObjectUndo(carrierGo, "Generate Empty Carrier Rows");
+                created.Add(carrier);
+            }
+        }
+
+        return created;
+    }
+
     // ------------------------------------------------------------- carrier blocks
 
     /// <summary>

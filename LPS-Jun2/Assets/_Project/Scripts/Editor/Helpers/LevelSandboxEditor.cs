@@ -33,6 +33,8 @@ public sealed class LevelSandboxEditor : Editor
         DrawSceneSetup();
         EditorGUILayout.Space(10);
         DrawGenerateButtons();
+        EditorGUILayout.Space(10);
+        DrawEmptyCarrierRows();
     }
 
     private bool HasLevel => _conveyorProperty != null && _conveyorProperty.objectReferenceValue != null;
@@ -414,6 +416,119 @@ public sealed class LevelSandboxEditor : Editor
         camera.transform.rotation = Quaternion.LookRotation(direction);
 
         EditorSceneManager.MarkSceneDirty(Sandbox.gameObject.scene);
+    }
+
+    // ------------------------------------------------------------ empty carrier rows
+
+    /// <summary>
+    /// Separate from level generation: spawns/respawns rows of empty carriers under hand-placed row
+    /// parent transforms, for editing an already-generated level. Every press clears whatever this
+    /// button previously generated and regenerates from the current settings.
+    /// </summary>
+    private void DrawEmptyCarrierRows()
+    {
+        EditorGUILayout.LabelField("Empty Carrier Rows", EditorStyles.boldLabel);
+
+        using (new EditorGUI.DisabledScope(EditorApplication.isPlayingOrWillChangePlaymode || _busy))
+        {
+            if (GUILayout.Button("Generate Empty Carrier Rows", GUILayout.Height(28)))
+                GenerateEmptyCarrierRows();
+        }
+
+        EditorGUILayout.HelpBox(
+            "Spawns evenly spaced empty carriers under each Empty Carrier Row Parent and adds them to " +
+            "SceneScope's Empty Carriers list. Press again to clear the previous rows and respawn.",
+            MessageType.None);
+    }
+
+    private void GenerateEmptyCarrierRows()
+    {
+        var scope = FindScope();
+        if (scope == null)
+        {
+            Debug.LogError("<b>Level Sandbox</b>: no SceneScope. Press Set Up Scene first.", Sandbox);
+            return;
+        }
+
+        if (!ResolveDataAssets(scope, out var assets)) return;
+
+        var carrierPrefab = assets.Carriers.Get(FeatureType.None).Prefab;
+        if (carrierPrefab == null)
+        {
+            Debug.LogError("<b>Level Sandbox</b>: Carriers data has no prefab for FeatureType.None.", Sandbox);
+            return;
+        }
+
+        var rowParents = Sandbox.EmptyCarrierRowParents;
+        if (rowParents == null || !rowParents.Any(x => x != null))
+        {
+            Debug.LogError("<b>Level Sandbox</b>: assign at least one Empty Carrier Row Parent.", Sandbox);
+            return;
+        }
+
+        if (Sandbox.EmptyCarriersPerRow <= 0)
+        {
+            Debug.LogError("<b>Level Sandbox</b>: Empty Carriers Per Row must be greater than zero.", Sandbox);
+            return;
+        }
+
+        var undoGroup = Undo.GetCurrentGroup();
+
+        var existing = LevelSandboxGenerator.FindRowCarriers(rowParents);
+        RemoveFromEmptyCarriers(scope, existing);
+        LevelSandboxGenerator.DestroyCarriers(existing);
+
+        var created = LevelSandboxGenerator.GenerateEmptyCarrierRows(rowParents, Sandbox.EmptyCarriersPerRow,
+            Sandbox.EmptyCarrierSpacing, Sandbox.EmptyCarrierPositiveZ, Sandbox.EmptyCarrierScale, carrierPrefab);
+        AddToEmptyCarriers(scope, created);
+
+        Undo.SetCurrentGroupName("Generate Empty Carrier Rows");
+        Undo.CollapseUndoOperations(undoGroup);
+
+        EditorSceneManager.MarkSceneDirty(Sandbox.gameObject.scene);
+
+        Debug.Log($"<b>Level Sandbox</b>: generated {created.Count} empty carriers across " +
+                  $"{rowParents.Count(x => x != null)} row(s), removed {existing.Count} previous.", Sandbox);
+    }
+
+    /// <summary>
+    /// Removing an object reference array element takes two steps in Unity: the first
+    /// DeleteArrayElementAtIndex call on a non-null reference only nulls it out, and only a second
+    /// call on an already-null element actually shrinks the array. Nulling first here does both in one pass.
+    /// </summary>
+    private static void RemoveFromEmptyCarriers(SceneScope scope, IEnumerable<Carrier> toRemove)
+    {
+        var so = new SerializedObject(scope);
+        var property = so.FindProperty("_emptyCarriers");
+
+        var removeSet = new HashSet<Carrier>(toRemove);
+
+        for (var i = property.arraySize - 1; i >= 0; i--)
+        {
+            var element = property.GetArrayElementAtIndex(i);
+            var carrier = element.objectReferenceValue as Carrier;
+            if (carrier != null && !removeSet.Contains(carrier)) continue;
+
+            element.objectReferenceValue = null;
+            property.DeleteArrayElementAtIndex(i);
+        }
+
+        so.ApplyModifiedProperties();
+    }
+
+    private static void AddToEmptyCarriers(SceneScope scope, IReadOnlyList<Carrier> toAdd)
+    {
+        if (toAdd.Count == 0) return;
+
+        var so = new SerializedObject(scope);
+        var property = so.FindProperty("_emptyCarriers");
+
+        var start = property.arraySize;
+        property.arraySize += toAdd.Count;
+        for (var i = 0; i < toAdd.Count; i++)
+            property.GetArrayElementAtIndex(start + i).objectReferenceValue = toAdd[i];
+
+        so.ApplyModifiedProperties();
     }
 
     // ------------------------------------------------------------------ data
