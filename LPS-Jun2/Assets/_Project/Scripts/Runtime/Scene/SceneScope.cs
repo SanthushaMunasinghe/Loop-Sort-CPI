@@ -42,6 +42,11 @@ public sealed class SceneScope : LifetimeScope
              "fully drains a colour group.")]
     [SerializeField] private float _groupSlideDuration = .25f;
 
+    [Header("Conveyor")]
+    [Tooltip("Scales a block on top of its normal size while it's jumping to and sitting on the " +
+             "conveyor belt. Reset to a block's normal scale the moment it lands back in a carrier.")]
+    [SerializeField] private float _conveyorBlockScaleMultiplier = 1f;
+
     [Header("Scene")]
     [Tooltip("Your camera. InteractionModule raycasts through it — without one there is no input.")]
     [SerializeField] private Camera _camera;
@@ -69,6 +74,7 @@ public sealed class SceneScope : LifetimeScope
     public IReadOnlyList<ColorType> BlockColors => _blockColors;
 
     public float GroupSlideDuration => _groupSlideDuration;
+    public float ConveyorBlockScaleMultiplier => _conveyorBlockScaleMultiplier;
 
     public Camera Camera => _camera;
     public Conveyor Conveyor => _conveyor;

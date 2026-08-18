@@ -16,6 +16,7 @@ public sealed class ConveyorSlot : GameBehaviourBase, IBlockContainer
     [Inject] private RemoteConfigModule _remoteConfigModule;
     [Inject] private Conveyor _conveyor;
     [Inject] private CarrierConfig _carrierConfig;
+    [Inject] private SceneScope _sceneScope;
 
     [Inject] private IPublisher<ConveyorSlotAddBlockMessage> _conveyorSlotAddBlockPub;
     [Inject] private IPublisher<ConveyorSlotRemoveBlockMessage> _conveyorSlotRemoveBlockPub;
@@ -79,7 +80,7 @@ public sealed class ConveyorSlot : GameBehaviourBase, IBlockContainer
         blockT.parent = isPhysicsActive ? null : transform;
 
         var configSize = _carrierConfig.Sizes[_blockPhysicsConfig.Type];
-        blockT.localScale = Vector3.one * configSize.ScaleMultiplier;
+        blockT.localScale = Vector3.one * configSize.ScaleMultiplier * _sceneScope.ConveyorBlockScaleMultiplier;
 
         block.MeshFilter.sharedMesh = _blockConfig.BeveledMesh;
 
