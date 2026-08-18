@@ -221,9 +221,14 @@ public static class LevelSandboxGenerator
     /// Where the block is parented. Defaults to carrier.BlockParent; FillCarrier passes a per-group
     /// container instead so the block still lands on its usual grid position and rotation.
     /// </param>
+    /// <param name="localPositionOverride">
+    /// Skips the index-to-coordinate lookup and places the block here instead (still in
+    /// carrier.BlockParent's frame). FillCarrier uses this for groups beyond the level's own
+    /// sizing, where <paramref name="index"/> would otherwise fall outside blockSize's grid.
+    /// </param>
     public static Block CreateCarrierBlock(Carrier carrier, Block prefab, Colors colors, ColorType colorType,
         FeatureType feature, int index, Vector3Int blockSize, CarrierConfig.SizeArgs configSize,
-        Transform parent = null)
+        Transform parent = null, Vector3? localPositionOverride = null)
     {
         parent ??= carrier.BlockParent;
 
@@ -233,8 +238,17 @@ public static class LevelSandboxGenerator
 
         block.EditorSetColor(colors, colorType, feature);
 
-        var coordinate = LevelGeometry.GetBlockCoordinate(index, blockSize);
-        var localPosition = LevelGeometry.CoordinateToLocalPosition(coordinate, blockSize, configSize);
+        Vector3 localPosition;
+        if (localPositionOverride.HasValue)
+        {
+            localPosition = localPositionOverride.Value;
+        }
+        else
+        {
+            var coordinate = LevelGeometry.GetBlockCoordinate(index, blockSize);
+            localPosition = LevelGeometry.CoordinateToLocalPosition(coordinate, blockSize, configSize);
+        }
+
         var blockT = block.transform;
         blockT.SetPositionAndRotation(carrier.BlockParent.TransformPoint(localPosition), carrier.BlockParent.rotation);
         blockT.localScale = Vector3.one * configSize.ScaleMultiplier;
@@ -285,14 +299,20 @@ public static class LevelSandboxGenerator
     }
 
     /// <summary>
-    /// Clears a carrier and refills it to the block count a full carrier holds, walking the palette
-    /// one entry per colour group so neighbouring groups differ whenever there is more than one
-    /// colour to draw on. Colours here are only what the scene view shows — SceneScope rerolls them
-    /// at run time. Returns how many blocks were placed.
+    /// Clears a carrier and refills it to carrier.StartGroupCount colour groups (default 4, which
+    /// matches the level's own sizing exactly — this only ever generates more than the level's
+    /// grid would when StartGroupCount is raised above 4). Walks the palette one entry per colour
+    /// group so neighbouring groups differ whenever there is more than one colour to draw on.
+    /// Colours here are only what the scene view shows — SceneScope rerolls them at run time.
+    /// Returns how many blocks were placed.
     ///
     /// Each colour group's blocks are parented under their own CarrierBlockGroupParent container
     /// (a child of carrier.BlockParent), positioned at the matching GroupBlocks entry's exact world
     /// position — the visual mesh this fill is standing in for until the carrier actually plays.
+    /// Groups beyond what the level's sizing produces need GroupBlocks slots that don't exist yet;
+    /// EnsureGroupBlockCapacity grows the carrier's real GroupBlocks/GroupBlockFilters lists first,
+    /// and their blocks are positioned by extrapolating the last real group's layout using the same
+    /// spacing the extra GroupBlocks slots were placed at — see the loop below.
     /// </summary>
     public static int FillCarrier(Carrier carrier, Blocks blocks, Colors colors, IReadOnlyList<ColorType> palette,
         Vector3Int blockSize, int groupBlockCount, CarrierConfig.SizeArgs configSize)
@@ -307,13 +327,30 @@ public static class LevelSandboxGenerator
             return 0;
         }
 
+        // Defensive clamp — [SerializeField] alone doesn't protect against a hand-edited scene value.
+        var startGroupCount = Mathf.Max(4, carrier.StartGroupCount);
+        EnsureGroupBlockCapacity(carrier, startGroupCount);
+
         ClearCarrierBlocks(carrier);
 
-        var maxBlockCount = blockSize.x * blockSize.y * blockSize.z;
+        // maxBaseBlockCount is exactly what the level's own sizing produces (unchanged formula), so
+        // when startGroupCount is left at 4 this equals desiredTotalBlockCount and every block below
+        // takes the untouched, byte-identical-to-before code path.
+        var maxBaseBlockCount = blockSize.x * blockSize.y * blockSize.z;
+        var baseGroupCount = groupBlockCount > 0 ? maxBaseBlockCount / groupBlockCount : maxBaseBlockCount;
+        var desiredTotalBlockCount = groupBlockCount > 0 ? startGroupCount * groupBlockCount : maxBaseBlockCount;
+
+        var groupDeltaLocal = Vector3.zero;
+        if (desiredTotalBlockCount > maxBaseBlockCount && carrier.GroupBlocks.Count >= 2)
+        {
+            groupDeltaLocal = carrier.BlockParent.InverseTransformPoint(carrier.GroupBlocks[1].transform.position)
+                             - carrier.BlockParent.InverseTransformPoint(carrier.GroupBlocks[0].transform.position);
+        }
+
         Transform groupParent = null;
         var currentGroup = -1;
 
-        for (var index = 0; index < maxBlockCount; index++)
+        for (var index = 0; index < desiredTotalBlockCount; index++)
         {
             var group = groupBlockCount > 0 ? index / groupBlockCount : index;
             if (group != currentGroup)
@@ -323,13 +360,29 @@ public static class LevelSandboxGenerator
             }
 
             var colorType = palette[group % palette.Count];
+
+            Vector3? positionOverride = null;
+            if (index >= maxBaseBlockCount)
+            {
+                // A group past the level's own grid: reuse the last real group's internal x/y/z-
+                // within-group layout (GetBlockCoordinate/CoordinateToLocalPosition never sees an
+                // index outside blockSize's bounds) and shift it by the authored GroupBlocks spacing
+                // for however many extra groups separate it from that last real group.
+                var localIndexInGroup = index % groupBlockCount;
+                var anchorIndex = (baseGroupCount - 1) * groupBlockCount + localIndexInGroup;
+                var anchorCoordinate = LevelGeometry.GetBlockCoordinate(anchorIndex, blockSize);
+                var anchorPosition = LevelGeometry.CoordinateToLocalPosition(anchorCoordinate, blockSize, configSize);
+                var extraGroups = group - (baseGroupCount - 1);
+                positionOverride = anchorPosition + groupDeltaLocal * extraGroups;
+            }
+
             var block = CreateCarrierBlock(carrier, blockData.Prefab, colors, colorType, FeatureType.None,
-                index, blockSize, configSize, groupParent);
+                index, blockSize, configSize, groupParent, positionOverride);
 
             Undo.RegisterCreatedObjectUndo(block.gameObject, "Apply Carrier Modes");
         }
 
-        return maxBlockCount;
+        return desiredTotalBlockCount;
     }
 
     /// <summary>
@@ -351,6 +404,53 @@ public static class LevelSandboxGenerator
             t.position = carrier.GroupBlocks[groupIndex].transform.position;
 
         return t;
+    }
+
+    /// <summary>
+    /// Grows carrier.GroupBlocks/GroupBlockFilters to at least desiredCount entries, permanently —
+    /// these are real scene objects that also drive BlockCarrierMeshSystem's group-merge visuals at
+    /// run time, not just a sandbox preview. Clones whatever currently sits at index 1 (a generic,
+    /// unrotated middle slot) and inserts it right after index 0 each time, so index 0 (front cap)
+    /// never moves and the carrier's last authored slot (rear cap) stays last, just pushed further
+    /// back. A no-op — zero Undo/dirty churn — when the carrier already has enough slots, which is
+    /// always true at the default StartGroupCount 4.
+    /// </summary>
+    private static void EnsureGroupBlockCapacity(Carrier carrier, int desiredCount)
+    {
+        if (carrier.GroupBlocks.Count < 2)
+        {
+            if (desiredCount > carrier.GroupBlocks.Count)
+                Debug.LogWarning($"<b>Level Sandbox</b>: '{carrier.name}' has too few GroupBlocks to " +
+                                 "expand (needs at least 2 as a spacing template). Leaving it as is.", carrier);
+            return;
+        }
+
+        if (carrier.GroupBlocks.Count >= desiredCount) return;
+
+        var groupBlocks = carrier.GroupBlocks;
+        var groupBlockFilters = carrier.GroupBlockFilters;
+        var delta = groupBlocks[1].transform.position - groupBlocks[0].transform.position;
+
+        Undo.RecordObject(carrier, "Apply Carrier Modes");
+
+        while (groupBlocks.Count < desiredCount)
+        {
+            var template = groupBlocks[1].gameObject;
+            var clone = Object.Instantiate(template, template.transform.parent);
+            clone.name = template.name;
+            Undo.RegisterCreatedObjectUndo(clone, "Apply Carrier Modes");
+
+            groupBlocks.Insert(1, clone.GetComponent<MeshRenderer>());
+            groupBlockFilters.Insert(1, clone.GetComponent<MeshFilter>());
+        }
+
+        for (var i = 0; i < groupBlocks.Count; i++)
+        {
+            Undo.RecordObject(groupBlocks[i].transform, "Apply Carrier Modes");
+            groupBlocks[i].transform.position = groupBlocks[0].transform.position + delta * i;
+        }
+
+        EditorUtility.SetDirty(carrier);
     }
 
     /// <summary>

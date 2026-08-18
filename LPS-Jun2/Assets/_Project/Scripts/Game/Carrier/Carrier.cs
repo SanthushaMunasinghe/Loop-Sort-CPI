@@ -45,6 +45,14 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
                     "Off means the sink swallows anything that reaches it.")]
     [field: SerializeField] public bool OnlyCompatibleColor { get; private set; }
 
+    [field: Header("Start Fill")]
+    [field: Tooltip("Start mode only: total colour-group count Apply Carrier Modes fills this " +
+                    "carrier to (blocks = this x the level's blocks-per-group). 4 matches the " +
+                    "level's own sizing exactly, so leaving it at 4 changes nothing. Apply Carrier " +
+                    "Modes clones GroupBlocks slot 1 to permanently add visual capacity when this " +
+                    "is higher.")]
+    [field: SerializeField] public int StartGroupCount { get; private set; } = 4;
+
     [Inject] private CarrierConfig _config;
     [Inject] private AudioModule _audioModule;
     [Inject] private HapticModule _hapticModule;
