@@ -63,6 +63,10 @@ public sealed class SceneScope : LifetimeScope
     [SerializeField] private SplineComputer _splineComputer;
     [SerializeField] private SplineMesh _splineMesh;
 
+    [Tooltip("The single global pickup trigger blocks pass through to be routed to a compatible, " +
+             "unfinished Empty carrier anywhere in the level. Hand-placed in the scene, not generated.")]
+    [SerializeField] private GlobalTrigger _globalTrigger;
+
     [Header("Systems")]
     [Tooltip("Only these SystemBase types are constructed. Everything else in the project is ignored.")]
     [SerializeField]
@@ -88,8 +92,30 @@ public sealed class SceneScope : LifetimeScope
     public IEnumerable<Carrier> AllCarriers => _startCarriers.Concat(_emptyCarriers);
     public bool IsRegisteredCarrier(Carrier carrier) => _startCarriers.Contains(carrier) || _emptyCarriers.Contains(carrier);
 
+    /// <summary>
+    /// First Empty carrier, in list order, that's still a sink, isn't full, can begin a transfer,
+    /// and accepts this block's colour (OnlyCompatibleColor / any IBlockTransferHandler included via
+    /// CanTransferBlock) — the same acceptance rules HandleCarrierTrigger already applies
+    /// per-carrier, just searched across the whole curated list instead of one fixed carrier.
+    /// </summary>
+    public Carrier FindCompatibleEmptyCarrier(Block block)
+    {
+        foreach (var carrier in _emptyCarriers)
+        {
+            if (carrier == null) continue;
+            if (!carrier.IsSink()) continue;
+            if (carrier.IsFull()) continue;
+            if (!carrier.CanBeginTransfer()) continue;
+            if (!carrier.CanTransferBlock(block)) continue;
+            return carrier;
+        }
+
+        return null;
+    }
+
     public Camera Camera => _camera;
     public Conveyor Conveyor => _conveyor;
+    public GlobalTrigger GlobalTrigger => _globalTrigger;
     public SplineComputer SplineComputer => _splineComputer;
 
     private World _world;

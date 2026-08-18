@@ -5,17 +5,19 @@ using UnityEngine.Pool;
 using VContainer;
 
 /// <summary>
-/// Binds the pre-generated carrier triggers to the transfer system.
+/// Binds every trigger that feeds blocks into carriers to the transfer system: the pre-generated
+/// per-carrier triggers, and the one hand-placed GlobalTrigger.
 ///
-/// The trigger GameObjects themselves are produced by LevelSandboxGenerator and live in the scene,
-/// so this no longer creates anything — it only wires each BlockTrigger to the carrier it was
-/// generated for.
+/// The trigger GameObjects themselves already live in the scene — the per-carrier ones produced by
+/// LevelSandboxGenerator, GlobalTrigger placed by hand — so this creates nothing, it only wires each
+/// BlockTrigger to whatever should handle the blocks that enter it.
 /// </summary>
 public sealed class BlockTriggerSystem : SystemBase, IFixedSystem
 {
     [Inject] private BlockTransferSystem _blockTransferSystem;
     [Inject] private RemoteConfigModule _remoteConfigModule;
     [Inject] private LevelSandbox _levelSandbox;
+    [Inject] private SceneScope _sceneScope;
 
     [Inject] private IPublisher<CarrierTriggerCompleteMessage> _carrierTriggerCompletePub;
     [Inject] private IPublisher<CarrierTriggerStartMessage> _carrierTriggerStartPub;
@@ -43,6 +45,7 @@ public sealed class BlockTriggerSystem : SystemBase, IFixedSystem
     private void OnLevelBuildComplete(LevelBuildCompleteMessage obj)
     {
         BindCarrierTriggers();
+        BindGlobalTrigger();
     }
 
     private void BindCarrierTriggers()
@@ -77,5 +80,36 @@ public sealed class BlockTriggerSystem : SystemBase, IFixedSystem
                 _blockTransferSystem.HandleCarrierTrigger(carrier, blocks);
             });
         }
+    }
+
+    /// <summary>
+    /// Binds the one hand-placed GlobalTrigger (SceneScope.GlobalTrigger) — unlike a per-carrier
+    /// trigger it isn't tied to a specific carrier, so on each block it asks SceneScope to find a
+    /// compatible Empty carrier and routes the block there.
+    /// </summary>
+    private void BindGlobalTrigger()
+    {
+        var globalTrigger = _sceneScope.GlobalTrigger;
+        if (globalTrigger == null)
+        {
+            Debug.LogWarning($"[{nameof(BlockTriggerSystem)}] No Global Trigger assigned on " +
+                              "SceneScope — global carrier pickup will not work.");
+            return;
+        }
+
+        if (!globalTrigger.TryGetComponent<BlockTrigger>(out var blockTrigger)) return;
+
+        blockTrigger.AddListener(block =>
+        {
+            var conveyorSlot = block.Container as ConveyorSlot;
+            if (conveyorSlot == null) return;
+
+            var carrier = _sceneScope.FindCompatibleEmptyCarrier(block);
+            if (carrier == null) return;
+
+            using var p = ListPool<Block>.Get(out var blocks);
+            blocks.Add(block);
+            _blockTransferSystem.HandleCarrierTrigger(carrier, blocks);
+        });
     }
 }
