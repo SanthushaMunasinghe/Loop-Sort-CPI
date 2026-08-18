@@ -15,6 +15,7 @@ public sealed class BlockTransferSystem : SystemBase
     [Inject] private AudioModule _audioModule;
     [Inject] private Conveyor _conveyor;
     [Inject] private RemoteConfigModule _remoteConfigModule;
+    [Inject] private SceneScope _sceneScope;
 
     [Inject] private ISubscriber<BlockTransferMessage> _blockTransferSub;
     [Inject] private ISubscriber<LevelBuildCompleteMessage> _levelBuildCompleteSub;
@@ -26,7 +27,6 @@ public sealed class BlockTransferSystem : SystemBase
 
     private Filter _conveyorSlotFilter;
     private Filter _conveyorSlotExtraFilter;
-    private Stash<BehaviourView<Carrier>> _carriers;
     private Stash<BehaviourView<ConveyorSlot>> _conveyorSlots;
     private Stash<CarrierTransferPoint> _carrierTransferPoints;
     private Stash<BlockLastCarrier> _blockLastCarriers;
@@ -52,7 +52,6 @@ public sealed class BlockTransferSystem : SystemBase
 
         _conveyorSlotFilter = World.Filter.With<BehaviourView<ConveyorSlot>>().Without<ExtraSlot>().Build();
         _conveyorSlotExtraFilter = World.Filter.With<BehaviourView<ConveyorSlot>>().Build();
-        _carriers = World.GetStash<BehaviourView<Carrier>>();
         _conveyorSlots = World.GetStash<BehaviourView<ConveyorSlot>>();
         _carrierTransferPoints = World.GetStash<CarrierTransferPoint>();
         _blockLastCarriers = World.GetStash<BlockLastCarrier>();
@@ -76,7 +75,7 @@ public sealed class BlockTransferSystem : SystemBase
     private void AddCarrierTriggers()
     {
         var triggerGroup = _splineComputer.AddTriggerGroup();
-        foreach (Carrier carrier in _carriers)
+        foreach (var carrier in _sceneScope.EmptyCarriers)
         {
             var worldPosition = carrier.TransferProjectPoint.position;
             var project = _splineComputer.Project(worldPosition);
@@ -91,14 +90,14 @@ public sealed class BlockTransferSystem : SystemBase
     private void SetRemoveTransferBlockTargets()
     {
         using var p1 = DictionaryPool<Carrier, SplineSample>.Get(out var splineSamples);
-        foreach (Carrier carrier in _carriers)
+        foreach (var carrier in _sceneScope.AllCarriers)
         {
             var worldPosition = carrier.TransferProjectPoint.position;
             var project = _splineComputer.Project(worldPosition);
             splineSamples[carrier] = project;
         }
 
-        foreach (Carrier carrier in _carriers)
+        foreach (var carrier in _sceneScope.AllCarriers)
         {
             SplineSample? targetSample = null;
             Carrier targetCarrier = null;
@@ -336,7 +335,7 @@ public sealed class BlockTransferSystem : SystemBase
                 {
                     var firstBlock = blocks[0];
                     int? removeBlockCount = null;
-                    foreach (Carrier carrier in _carriers)
+                    foreach (var carrier in _sceneScope.AllCarriers)
                     {
                         if (carrier.IsFull() || carrier.IsEmpty()) continue;
                         var nextColorType = carrier.GetNextColorType();
@@ -387,6 +386,10 @@ public sealed class BlockTransferSystem : SystemBase
 
     public async UniTaskVoid HandleCarrierTrigger(Carrier carrier, List<Block> blocks)
     {
+        // Only SceneScope's curated Start/Empty carriers actually function — everything else is
+        // inert even though it still has its own physics trigger (level generation is unchanged).
+        if (!_sceneScope.IsRegisteredCarrier(carrier)) return;
+
         // Same here — no state machine, so conveyor -> carrier pickup is always allowed.
         foreach (var block in blocks)
         {
@@ -463,7 +466,7 @@ public sealed class BlockTransferSystem : SystemBase
     {
         var betterCarrier = default(Carrier);
         var betterCarrierBlockCount = 0;
-        foreach (Carrier carrier in _carriers)
+        foreach (var carrier in _sceneScope.AllCarriers)
         {
             // A sink acts on its own trigger only. Letting it score as someone else's better carrier
             // would hold blocks back from carriers that can actually use them.

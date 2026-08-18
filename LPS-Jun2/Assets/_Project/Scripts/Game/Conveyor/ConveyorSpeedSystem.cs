@@ -8,9 +8,8 @@ public sealed class ConveyorSpeedSystem : SystemBase
 {
     [Inject] private Conveyor _conveyor;
     [Inject] private RemoteConfigModule _remoteConfigModule;
+    [Inject] private SceneScope _sceneScope;
 
-    private Filter _filter;
-    private Stash<BehaviourView<Carrier>> _carriers;
     private PaceConfig _paceConfig;
     private BlockPhysicsConfig _blockPhysicsConfig;
 
@@ -18,8 +17,6 @@ public sealed class ConveyorSpeedSystem : SystemBase
     {
         base.OnAwake();
 
-        _filter = World.Filter.With<BehaviourView<Carrier>>().With<Enabled>().Build();
-        _carriers = World.GetStash<BehaviourView<Carrier>>();
         _paceConfig = _remoteConfigModule.GetDataClassNew<PaceConfig>();
         _blockPhysicsConfig = _remoteConfigModule.GetDataClassNew<BlockPhysicsConfig>();
     }
@@ -70,9 +67,9 @@ public sealed class ConveyorSpeedSystem : SystemBase
     public bool IsLastCarrier()
     {
         Carrier targetCarrier = null;
-        foreach (var entity in _filter)
+        foreach (var carrier in _sceneScope.AllCarriers)
         {
-            Carrier carrier = _carriers.Get(entity);
+            if (!carrier.gameObject.activeInHierarchy) continue;
             if (carrier.IsComplete()) continue;
             if (carrier.IsEmpty() && !carrier.IsTransferringOrAddingBlocks()) continue;
 

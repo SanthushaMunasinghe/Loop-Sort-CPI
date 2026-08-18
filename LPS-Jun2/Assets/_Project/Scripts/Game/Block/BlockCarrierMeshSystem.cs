@@ -11,6 +11,7 @@ public sealed class BlockCarrierMeshSystem : SystemBase
     [Inject] private BlockConfig _blockConfig;
     [Inject] private Conveyor _conveyor;
     [Inject] private RemoteConfigModule _remoteConfigModule;
+    [Inject] private SceneScope _sceneScope;
 
     [Inject] private ISubscriber<CarrierAddBlockMessage> _carrierAddBlockSub;
     [Inject] private ISubscriber<CarrierRemoveBlockMessage> _carrierRemoveBlockSub;
@@ -20,8 +21,6 @@ public sealed class BlockCarrierMeshSystem : SystemBase
     [Inject] private IPublisher<CarrierBlockGroupUpdateMessage> _carrierBlockGroupUpdatePub;
 
     private readonly List<Rule> _rules = new();
-
-    private Stash<BehaviourView<Carrier>> _carriers;
 
     private bool _isBlockCreateComplete;
     private BlockGroupConfig _blockGroupConfig;
@@ -39,7 +38,6 @@ public sealed class BlockCarrierMeshSystem : SystemBase
 
         RegisterRules();
 
-        _carriers = World.GetStash<BehaviourView<Carrier>>();
         _blockGroupConfig = _remoteConfigModule.GetDataClassNew<BlockGroupConfig>();
     }
 
@@ -94,7 +92,7 @@ public sealed class BlockCarrierMeshSystem : SystemBase
     private void OnCarrierBlockCreateComplete(CarrierBlockCreateCompleteMessage m)
     {
         _isBlockCreateComplete = true;
-        foreach (Carrier carrier in _carriers)
+        foreach (var carrier in _sceneScope.AllCarriers)
         {
             var blocks = carrier.GetBlocks();
             foreach (var b in blocks)

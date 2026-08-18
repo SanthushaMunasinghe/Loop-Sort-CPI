@@ -34,6 +34,8 @@ public sealed class LevelSandbox : MonoBehaviour
     [SerializeField] private float _slotCollisionDistance;
     [SerializeField] private int _lengthBasedSlotCount;
 
+    [Inject] private SceneScope _sceneScope;
+
     [Inject] private IPublisher<LevelBuildCompleteMessage> _levelBuildCompletePub;
     [Inject] private IPublisher<SlotCreateCompleteMessage> _slotCreateCompletePub;
     [Inject] private IPublisher<CarrierBlockCreateCompleteMessage> _carrierBlockCreateCompletePub;
@@ -75,13 +77,16 @@ public sealed class LevelSandbox : MonoBehaviour
     /// <summary>
     /// Carriers hold their blocks as plain children in the generated scene. Register them with the
     /// carrier's block list without the async placement motion AddBlock would normally run.
+    ///
+    /// Only SceneScope's hand-curated Start/Empty carriers are adopted — not every Carrier under
+    /// CarriersRoot. A carrier left out (disabled, or just not added) never gets its blocks touched
+    /// here, which matters for a disabled one specifically: Unity never runs Awake() under a
+    /// disabled hierarchy, so its blocks' Rigidbody/MeshFilter/etc. are never assigned, and touching
+    /// them here would throw.
     /// </summary>
     private void AdoptCarrierBlocks()
     {
-        if (_carriersRoot == null) return;
-
-        var carriers = _carriersRoot.GetComponentsInChildren<Carrier>(true);
-        foreach (var carrier in carriers)
+        foreach (var carrier in _sceneScope.AllCarriers)
             carrier.AdoptAuthoredBlocks();
     }
 

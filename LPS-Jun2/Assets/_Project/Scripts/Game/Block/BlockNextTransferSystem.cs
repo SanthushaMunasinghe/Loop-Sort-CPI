@@ -14,8 +14,9 @@ public sealed class BlockNextTransferSystem : SystemBase
 
     [Inject] private IPublisher<BlockNextTransferUpdateMessage> _blockNextTransferUpdatePub;
 
+    [Inject] private SceneScope _sceneScope;
+
     private Stash<BlockNextTransfer> _blockNextTransfers;
-    private Stash<BehaviourView<Carrier>> _carriers;
 
     private bool _isBlockCreateComplete;
 
@@ -24,7 +25,6 @@ public sealed class BlockNextTransferSystem : SystemBase
         base.OnAwake();
 
         _blockNextTransfers = World.GetStash<BlockNextTransfer>();
-        _carriers = World.GetStash<BehaviourView<Carrier>>();
     }
 
     protected override void BuildMessages(DisposableBagBuilder bag)
@@ -71,7 +71,7 @@ public sealed class BlockNextTransferSystem : SystemBase
     {
         await UniTask.NextFrame(SceneLoadToken);
         _isBlockCreateComplete = true;
-        foreach (Carrier carrier in _carriers)
+        foreach (var carrier in _sceneScope.StartCarriers)
             RefreshNextTransferBlocks(carrier);
     }
 

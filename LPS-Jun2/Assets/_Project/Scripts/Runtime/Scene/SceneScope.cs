@@ -42,6 +42,14 @@ public sealed class SceneScope : LifetimeScope
              "fully drains a colour group.")]
     [SerializeField] private float _groupSlideDuration = .25f;
 
+    [Tooltip("Carriers this scene treats as block sources. Only carriers in this list or Empty " +
+             "Carriers actually function at runtime — everything else is inert. Populated by hand.")]
+    [SerializeField] private List<Carrier> _startCarriers = new();
+
+    [Tooltip("Carriers this scene treats as block sinks. Only carriers in this list or Start " +
+             "Carriers actually function at runtime — everything else is inert. Populated by hand.")]
+    [SerializeField] private List<Carrier> _emptyCarriers = new();
+
     [Header("Conveyor")]
     [Tooltip("Scales a block on top of its normal size while it's jumping to and sitting on the " +
              "conveyor belt. Reset to a block's normal scale the moment it lands back in a carrier.")]
@@ -75,6 +83,10 @@ public sealed class SceneScope : LifetimeScope
 
     public float GroupSlideDuration => _groupSlideDuration;
     public float ConveyorBlockScaleMultiplier => _conveyorBlockScaleMultiplier;
+    public IReadOnlyList<Carrier> StartCarriers => _startCarriers;
+    public IReadOnlyList<Carrier> EmptyCarriers => _emptyCarriers;
+    public IEnumerable<Carrier> AllCarriers => _startCarriers.Concat(_emptyCarriers);
+    public bool IsRegisteredCarrier(Carrier carrier) => _startCarriers.Contains(carrier) || _emptyCarriers.Contains(carrier);
 
     public Camera Camera => _camera;
     public Conveyor Conveyor => _conveyor;
@@ -155,10 +167,8 @@ public sealed class SceneScope : LifetimeScope
         }
 
         using var p2 = ListPool<string>.Get(out var log);
-        foreach (var carrier in FindObjectsOfType<Carrier>(includeInactive: true))
+        foreach (var carrier in AllCarriers)
         {
-            if (carrier.gameObject.scene != gameObject.scene) continue;
-
             var colorTypes = ApplyRandomCarrierColors(carrier, palette);
             if (colorTypes != null) log.Add($"{carrier.name} [{string.Join(", ", colorTypes)}]");
         }
