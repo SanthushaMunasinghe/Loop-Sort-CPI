@@ -248,7 +248,7 @@ public sealed class LevelAnimationSystem : SystemBase
 
             if (_enabledEntities.Has(entity))
             {
-                carrier.ApplyCloseBackMotion(immediate: true);
+                carrier.ApplyCloseBackMotion(immediate: true).Forget();
                 ApplyMoveMotion(carrier, from, to);
             }
             else

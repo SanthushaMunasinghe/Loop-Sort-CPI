@@ -65,6 +65,7 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
 
     [Inject] private IPublisher<CarrierSelectMessage> _carrierSelectPub;
     [Inject] private IPublisher<CarrierCompleteMessage> _carrierCompletePub;
+    [Inject] private IPublisher<CarrierBackClosedMessage> _carrierBackClosedPub;
     [Inject] private IPublisher<CarrierAddBlockMessage> _carrierAddBlockPub;
     [Inject] private IPublisher<CarrierRemoveBlockMessage> _carrierRemoveBlockPub;
     [Inject] private IPublisher<CarrierInteractUpdateMessage> _carrierInteractUpdatePub;
@@ -384,7 +385,12 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
             await UniTask.Yield(cancellationToken: SceneLoadToken);
 
         ApplyCheckmarkMotion();
-        ApplyCloseBackMotion();
+        await ApplyCloseBackMotion();
+
+        _carrierBackClosedPub.Publish(new CarrierBackClosedMessage
+        {
+            Carrier = this
+        });
 
         var carrierCompleteSound = _soundConfig.Stack
             ? _audioModule.Sounds.CarrierCompleteAb
@@ -758,6 +764,13 @@ public struct CarrierSelectMessage
 }
 
 public struct CarrierCompleteMessage
+{
+    public Carrier Carrier;
+}
+
+/// <summary>Published once ApplyCloseBackMotion's top blend shape finishes closing after a
+/// completion — the signal EmptyCarrierRowExit waits on before starting a row carrier's exit.</summary>
+public struct CarrierBackClosedMessage
 {
     public Carrier Carrier;
 }

@@ -62,7 +62,7 @@ public partial class Carrier
         BackTopRenderer.gameObject.SetActive(false);
     }
 
-    public async UniTaskVoid ApplyCloseBackMotion(bool immediate = false)
+    public async UniTask ApplyCloseBackMotion(bool immediate = false)
     {
         if (BackRearRenderer == null || BackTopRenderer == null) return;
         _backMotions.Cancel();

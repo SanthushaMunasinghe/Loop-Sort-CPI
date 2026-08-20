@@ -42,6 +42,10 @@ public sealed class SceneScope : LifetimeScope
              "fully drains a colour group.")]
     [SerializeField] private float _groupSlideDuration = .25f;
 
+    [Tooltip("Empty Carrier Rows: how long a row's completed carrier takes to lerp onto its row's " +
+             "spline (point 1) and ride it to the last point, once its lid finishes closing.")]
+    [SerializeField] private float _emptyCarrierExitDuration = 1.5f;
+
     [Tooltip("Carriers this scene treats as block sources. Only carriers in this list or Empty " +
              "Carriers actually function at runtime — everything else is inert. Populated by hand.")]
     [SerializeField] private List<Carrier> _startCarriers = new();
@@ -95,6 +99,7 @@ public sealed class SceneScope : LifetimeScope
     public IReadOnlyList<ColorType> BlockColors => _blockColors;
 
     public float GroupSlideDuration => _groupSlideDuration;
+    public float EmptyCarrierExitDuration => _emptyCarrierExitDuration;
     public float ConveyorBlockScaleMultiplier => _conveyorBlockScaleMultiplier;
     public IReadOnlyList<Carrier> StartCarriers => _startCarriers;
     public IReadOnlyList<Carrier> EmptyCarriers => _emptyCarriers;
