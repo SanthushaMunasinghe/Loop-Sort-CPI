@@ -50,6 +50,15 @@ public sealed class SceneScope : LifetimeScope
              "Carriers actually function at runtime — everything else is inert. Populated by hand.")]
     [SerializeField] private List<Carrier> _emptyCarriers = new();
 
+    [Tooltip("When enabled, each row below offers one carrier at a time — the first of that row " +
+             "still holding space. Filling it hands the row on to the next carrier. When disabled, " +
+             "every Empty Carriers entry above is available as normal and rows are ignored.")]
+    [SerializeField] private bool _useEmptyCarrierRows;
+
+    [Tooltip("Row groupings for the toggle above, front-to-back per row. Populated by the Level " +
+             "Sandbox's Generate Empty Carrier Rows button.")]
+    [SerializeField] private List<EmptyCarrierRow> _emptyCarrierRows = new();
+
     [Header("Conveyor")]
     [Tooltip("Scales a block on top of its normal size while it's jumping to and sitting on the " +
              "conveyor belt. Reset to a block's normal scale the moment it lands back in a carrier.")]
@@ -92,14 +101,40 @@ public sealed class SceneScope : LifetimeScope
     public IEnumerable<Carrier> AllCarriers => _startCarriers.Concat(_emptyCarriers);
     public bool IsRegisteredCarrier(Carrier carrier) => _startCarriers.Contains(carrier) || _emptyCarriers.Contains(carrier);
 
+    public bool UseEmptyCarrierRows => _useEmptyCarrierRows;
+    public IReadOnlyList<EmptyCarrierRow> EmptyCarrierRows => _emptyCarrierRows;
+
     /// <summary>
-    /// First Empty carrier, in list order, that's still a sink, isn't full, can begin a transfer,
-    /// and accepts this block's colour (OnlyCompatibleColor / any IBlockTransferHandler included via
+    /// First Empty carrier that's still a sink, isn't full, can begin a transfer, and accepts this
+    /// block's colour (OnlyCompatibleColor / any IBlockTransferHandler included via
     /// CanTransferBlock) — the same acceptance rules HandleCarrierTrigger already applies
-    /// per-carrier, just searched across the whole curated list instead of one fixed carrier.
+    /// per-carrier.
+    ///
+    /// When UseEmptyCarrierRows is on, EmptyCarriers is not consulted at all — each row offers one
+    /// carrier and one only, the first of that row still holding space (see GetActiveRowCarrier).
+    /// Filling it is what hands the row on to the next carrier; nothing has to be disabled, moved or
+    /// removed for that to happen.
     /// </summary>
     public Carrier FindCompatibleEmptyCarrier(Block block)
     {
+        if (_useEmptyCarrierRows)
+        {
+            foreach (var row in _emptyCarrierRows)
+            {
+                var active = GetActiveRowCarrier(row);
+                if (active == null) continue;
+
+                // Unlike the checks in GetActiveRowCarrier, these two are about this block right
+                // now, so a no here means the row stays shut rather than passing the block back to
+                // a carrier behind the active one.
+                if (!active.CanBeginTransfer()) continue;
+                if (!active.CanTransferBlock(block)) continue;
+                return active;
+            }
+
+            return null;
+        }
+
         foreach (var carrier in _emptyCarriers)
         {
             if (carrier == null) continue;
@@ -107,6 +142,26 @@ public sealed class SceneScope : LifetimeScope
             if (carrier.IsFull()) continue;
             if (!carrier.CanBeginTransfer()) continue;
             if (!carrier.CanTransferBlock(block)) continue;
+            return carrier;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// A row's one open carrier: the first one, front to back, that still has room. Carriers that
+    /// have filled up are stepped over — that is what hands a row on to its next carrier — as are
+    /// entries that could never take a block anyway (null, inactive, or not a sink), so none of
+    /// them can leave a row permanently stalled. Null once every carrier in the row is full.
+    /// </summary>
+    private static Carrier GetActiveRowCarrier(EmptyCarrierRow row)
+    {
+        foreach (var carrier in row.Carriers)
+        {
+            if (carrier == null) continue;
+            if (!carrier.gameObject.activeInHierarchy) continue;
+            if (!carrier.IsSink()) continue;
+            if (carrier.IsFull()) continue;
             return carrier;
         }
 
@@ -439,4 +494,11 @@ public struct LevelTransitionData
 {
     public bool Enter;
     public bool Exit;
+}
+
+/// <summary>One row of SceneScope's Empty Carrier Rows, front-to-back.</summary>
+[Serializable]
+public sealed class EmptyCarrierRow
+{
+    public List<Carrier> Carriers = new();
 }

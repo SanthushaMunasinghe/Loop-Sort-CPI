@@ -436,8 +436,10 @@ public sealed class LevelSandboxEditor : Editor
         }
 
         EditorGUILayout.HelpBox(
-            "Spawns evenly spaced empty carriers under each Empty Carrier Row Parent and adds them to " +
-            "SceneScope's Empty Carriers list. Press again to clear the previous rows and respawn.",
+            "Spawns evenly spaced empty carriers under each Empty Carrier Row Parent, adds them to " +
+            "SceneScope's Empty Carriers list, and records their row order in Empty Carrier Rows. " +
+            "Press again to clear the previous rows and respawn. Enable SceneScope's Use Empty Carrier " +
+            "Rows toggle to make rows fill front-to-back at runtime.",
             MessageType.None);
     }
 
@@ -489,6 +491,7 @@ public sealed class LevelSandboxEditor : Editor
             Sandbox.EmptyCarrierSpacing, Sandbox.EmptyCarrierPositiveZ, Sandbox.EmptyCarrierScale,
             scope.BlockColors, carrierPrefab);
         AddToEmptyCarriers(scope, created);
+        UpdateEmptyCarrierRows(scope, existing, created);
 
         Undo.SetCurrentGroupName("Generate Empty Carrier Rows");
         Undo.CollapseUndoOperations(undoGroup);
@@ -535,6 +538,50 @@ public sealed class LevelSandboxEditor : Editor
         property.arraySize += toAdd.Count;
         for (var i = 0; i < toAdd.Count; i++)
             property.GetArrayElementAtIndex(start + i).objectReferenceValue = toAdd[i];
+
+        so.ApplyModifiedProperties();
+    }
+
+    /// <summary>
+    /// Keeps SceneScope's Empty Carrier Rows in sync with what this button just did: drops any row
+    /// that referenced a carrier just destroyed, then appends one fresh row per row parent, grouping
+    /// the newly created carriers by their (row parent) transform.parent — already front-to-back,
+    /// since that's the order LevelSandboxGenerator.GenerateEmptyCarrierRows creates them in.
+    /// </summary>
+    private static void UpdateEmptyCarrierRows(SceneScope scope, IEnumerable<Carrier> removed, IReadOnlyList<Carrier> created)
+    {
+        var so = new SerializedObject(scope);
+        var rowsProperty = so.FindProperty("_emptyCarrierRows");
+
+        var removeSet = new HashSet<Carrier>(removed);
+
+        for (var i = rowsProperty.arraySize - 1; i >= 0; i--)
+        {
+            var carriersProperty = rowsProperty.GetArrayElementAtIndex(i).FindPropertyRelative("Carriers");
+            var isStale = false;
+            for (var j = 0; j < carriersProperty.arraySize; j++)
+            {
+                var carrier = carriersProperty.GetArrayElementAtIndex(j).objectReferenceValue as Carrier;
+                if (carrier != null && !removeSet.Contains(carrier)) continue;
+                isStale = true;
+                break;
+            }
+
+            if (isStale) rowsProperty.DeleteArrayElementAtIndex(i);
+        }
+
+        foreach (var group in created.GroupBy(c => c.transform.parent))
+        {
+            var groupCarriers = group.ToList();
+
+            var rowIndex = rowsProperty.arraySize;
+            rowsProperty.arraySize++;
+
+            var carriersProperty = rowsProperty.GetArrayElementAtIndex(rowIndex).FindPropertyRelative("Carriers");
+            carriersProperty.arraySize = groupCarriers.Count;
+            for (var i = 0; i < groupCarriers.Count; i++)
+                carriersProperty.GetArrayElementAtIndex(i).objectReferenceValue = groupCarriers[i];
+        }
 
         so.ApplyModifiedProperties();
     }
