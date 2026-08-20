@@ -114,25 +114,43 @@ public sealed class SceneScope : LifetimeScope
     /// carrier and one only, the first of that row still holding space (see GetActiveRowCarrier).
     /// Filling it is what hands the row on to the next carrier; nothing has to be disabled, moved or
     /// removed for that to happen.
+    ///
+    /// Between rows, the carrier sitting furthest forward wins: a row whose open carrier is still at
+    /// index 0 is served before one that has already filled its way back to index 1, so rows advance
+    /// roughly in step instead of one racing ahead. Two candidates at the same index go to whichever
+    /// row is listed first.
     /// </summary>
     public Carrier FindCompatibleEmptyCarrier(Block block)
     {
         if (_useEmptyCarrierRows)
         {
+            Carrier best = null;
+            var bestIndex = int.MaxValue;
+
             foreach (var row in _emptyCarrierRows)
             {
-                var active = GetActiveRowCarrier(row);
+                var active = GetActiveRowCarrier(row, out var index);
                 if (active == null) continue;
+
+                // Not a better position than what we already hold, so nothing this carrier could
+                // answer would change the outcome. Ties land here too, which is what keeps the
+                // earlier row ahead of a later one at the same index.
+                if (index >= bestIndex) continue;
 
                 // Unlike the checks in GetActiveRowCarrier, these two are about this block right
                 // now, so a no here means the row stays shut rather than passing the block back to
                 // a carrier behind the active one.
                 if (!active.CanBeginTransfer()) continue;
                 if (!active.CanTransferBlock(block)) continue;
-                return active;
+
+                best = active;
+                bestIndex = index;
+
+                // Nothing further back can beat the front of a row.
+                if (bestIndex == 0) break;
             }
 
-            return null;
+            return best;
         }
 
         foreach (var carrier in _emptyCarriers)
@@ -149,22 +167,27 @@ public sealed class SceneScope : LifetimeScope
     }
 
     /// <summary>
-    /// A row's one open carrier: the first one, front to back, that still has room. Carriers that
-    /// have filled up are stepped over — that is what hands a row on to its next carrier — as are
-    /// entries that could never take a block anyway (null, inactive, or not a sink), so none of
-    /// them can leave a row permanently stalled. Null once every carrier in the row is full.
+    /// A row's one open carrier: the first one, front to back, that still has room, reported with
+    /// the position it sits at so callers can compare rows. Carriers that have filled up are stepped
+    /// over — that is what hands a row on to its next carrier — as are entries that could never take
+    /// a block anyway (null, inactive, or not a sink), so none of them can leave a row permanently
+    /// stalled. Null once every carrier in the row is full.
     /// </summary>
-    private static Carrier GetActiveRowCarrier(EmptyCarrierRow row)
+    private static Carrier GetActiveRowCarrier(EmptyCarrierRow row, out int index)
     {
-        foreach (var carrier in row.Carriers)
+        for (var i = 0; i < row.Carriers.Count; i++)
         {
+            var carrier = row.Carriers[i];
             if (carrier == null) continue;
             if (!carrier.gameObject.activeInHierarchy) continue;
             if (!carrier.IsSink()) continue;
             if (carrier.IsFull()) continue;
+
+            index = i;
             return carrier;
         }
 
+        index = int.MaxValue;
         return null;
     }
 
