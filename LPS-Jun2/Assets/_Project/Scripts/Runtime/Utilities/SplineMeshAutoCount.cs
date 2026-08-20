@@ -17,6 +17,16 @@ public sealed class SplineMeshAutoCount : MonoBehaviour
     private SplineComputer _splineComputer;
     private SplineMesh _splineMesh;
 
+#if UNITY_EDITOR
+    /// <summary>
+    /// The tile-density mapping this component applies at play time. Exposed so edit-time tooling
+    /// (<see cref="ConveyorMeshUpdater"/>) can apply the same formula from a button — Awake never
+    /// runs in edit mode, so without that the mesh keeps whatever coarse count was serialized and
+    /// only becomes smooth once you press Play.
+    /// </summary>
+    public IReadOnlyList<Element> EditorElements => Elements;
+#endif
+
     private void Awake()
     {
         _splineComputer = GetComponent<SplineComputer>();
