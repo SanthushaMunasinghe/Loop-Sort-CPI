@@ -31,9 +31,15 @@ public sealed class EmptyCarrierRowExit : GameBehaviourBase
     [Tooltip("This row's exit path. Auto-filled from this GameObject.")]
     [SerializeField] private SplineComputer _splineComputer;
 
+    [Tooltip("Spline point index the initial lerp-in ends at — where the exiting carrier joins the " +
+             "spline before riding it out to the last point. We don't always want to join at the " +
+             "very first point, so this is set manually per row. Defaults to the 2nd point (index 1).")]
+    [Min(0)]
+    [SerializeField] private int _initialPointIndex = 1;
+
     [Tooltip("Spline point index that, once the exiting carrier reaches it, starts the remaining " +
              "carriers sliding forward — while the exiting carrier keeps travelling on to the last " +
-             "point. Point 1 (not this) is always where the initial lerp-in ends.")]
+             "point. Initial Point Index (not this) is always where the initial lerp-in ends.")]
     [Min(1)]
     [SerializeField] private int _shiftTriggerPointIndex = 4;
 
@@ -114,7 +120,7 @@ public sealed class EmptyCarrierRowExit : GameBehaviourBase
     }
 
     // The next carrier is already locked by OnCarrierComplete by the time this runs — this only
-    // lerps the completed carrier onto the spline at point 1, then rides the curve to the last
+    // lerps the completed carrier onto the spline at the initial point, then rides the curve to the last
     // point, firing the shift the moment it passes _shiftTriggerPointIndex rather than waiting for
     // the full journey to finish.
     private async UniTaskVoid RunExit(Carrier exiting)
@@ -133,11 +139,23 @@ public sealed class EmptyCarrierRowExit : GameBehaviourBase
         var startY = startPosition.y;
         var lastPointIndex = _splineComputer.pointCount - 1;
 
+        // Clamped short of the last point, never onto or past it: an initial index sitting on the
+        // last point would leave nothing for the spline-follow phase to ride.
+        var initialPointIndex = Mathf.Clamp(_initialPointIndex, 0, Mathf.Max(0, lastPointIndex - 1));
+        if (initialPointIndex != _initialPointIndex)
+        {
+            Debug.LogWarning($"<b>{nameof(EmptyCarrierRowExit)}</b>: {name}'s spline only has " +
+                             $"{_splineComputer.pointCount} points, so Initial Point Index " +
+                             $"{_initialPointIndex} was clamped to {initialPointIndex}.", this);
+        }
+
         // Clamped a point short of the last one, never onto it: a trigger index sitting exactly on
         // the last point degenerates to "reached only once the exit is basically already over,"
         // which visually reads as the shift never happening at all, on any spline short enough for
-        // the authored index to need clamping in the first place.
-        var triggerPointIndex = Mathf.Clamp(_shiftTriggerPointIndex, 1, Mathf.Max(1, lastPointIndex - 1));
+        // the authored index to need clamping in the first place. Also kept after the initial point,
+        // since a trigger at or before it would fire before the spline-follow phase even starts.
+        var triggerPointIndex = Mathf.Clamp(_shiftTriggerPointIndex, initialPointIndex + 1,
+            Mathf.Max(initialPointIndex + 1, lastPointIndex - 1));
         if (triggerPointIndex != _shiftTriggerPointIndex)
         {
             Debug.LogWarning($"<b>{nameof(EmptyCarrierRowExit)}</b>: {name}'s spline only has " +
@@ -146,11 +164,11 @@ public sealed class EmptyCarrierRowExit : GameBehaviourBase
                              "points to the row's spline if you want the shift to start later.", this);
         }
 
-        var point1Position = _splineComputer.EvaluatePosition(1);
-        var point1Percent = _splineComputer.GetPointPercent(1);
+        var initialPointPosition = _splineComputer.EvaluatePosition(initialPointIndex);
+        var initialPointPercent = _splineComputer.GetPointPercent(initialPointIndex);
         var triggerPercent = _splineComputer.GetPointPercent(triggerPointIndex);
 
-        // First portion of the tween is a straight lerp onto the spline at point 1; the rest rides
+        // First portion of the tween is a straight lerp onto the spline at the initial point; the rest rides
         // the curve itself from there to the last point. Both phases share one easing curve over one
         // duration so the hand-off from "lerp" to "follow" has no visible seam.
         const float lerpInPortion = .15f;
@@ -164,11 +182,11 @@ public sealed class EmptyCarrierRowExit : GameBehaviourBase
                 Vector3 position;
                 if (u < lerpInPortion)
                 {
-                    position = Vector3.Lerp(startPosition, point1Position, u / lerpInPortion);
+                    position = Vector3.Lerp(startPosition, initialPointPosition, u / lerpInPortion);
                 }
                 else
                 {
-                    var splinePercent = DMath.Lerp(point1Percent, 1.0,
+                    var splinePercent = DMath.Lerp(initialPointPercent, 1.0,
                         (u - lerpInPortion) / (1f - lerpInPortion));
                     position = _splineComputer.EvaluatePosition(splinePercent);
 

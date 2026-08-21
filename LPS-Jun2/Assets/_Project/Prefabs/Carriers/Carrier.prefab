@@ -805,6 +805,7 @@ MonoBehaviour:
   - {fileID: 3937979200258899441}
   - {fileID: 2729748392360583615}
   - {fileID: 4754496417187428463}
+  <AdditionalModels>k__BackingField: []
   <Type>k__BackingField: 0
   <Mode>k__BackingField: 0
   <CompatibleColor>k__BackingField:
@@ -1126,7 +1127,7 @@ MeshRenderer:
   m_RendererPriority: 0
   m_Materials:
   - {fileID: 2100000, guid: 342deb02b89104522856dee8bae2a1de, type: 2}
-  - {fileID: 2100000, guid: dc3c36e568ccf48368e376be2fb26b12, type: 2}
+  - {fileID: 2100000, guid: 3ac92bba78d224782a459415bf49a60e, type: 2}
   - {fileID: 2100000, guid: 0caf8e4c0f221409fa784613bf233e09, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0

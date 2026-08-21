@@ -529,7 +529,8 @@ public static class LevelSandboxGenerator
     /// <summary>
     /// Paints a restricted sink's head and back-top (the "top part" that closes on completion) with
     /// the colour it accepts, and puts every other carrier's back to the prefab material so toggling
-    /// the option off and pressing the button again cleans up.
+    /// the option off and pressing the button again cleans up. AdditionalModels always follow
+    /// whatever colour the head ends up with.
     ///
     /// This survives Play untouched: Carrier.Awake calls base.Awake — and so OnRent's
     /// InjectMaterial(_originalMaterial) — before _originalMaterial is read off the head, so that call
@@ -540,13 +541,14 @@ public static class LevelSandboxGenerator
     /// </summary>
     public static void ApplyCarrierHeadColor(Carrier carrier, Colors colors)
     {
-        ApplyCarrierRendererColor(carrier, carrier.HeadRenderer, colors);
+        var headMaterial = ApplyCarrierRendererColor(carrier, carrier.HeadRenderer, colors);
         ApplyCarrierRendererColor(carrier, carrier.BackTopRenderer, colors);
+        ApplyAdditionalModelColors(carrier, headMaterial);
     }
 
-    private static void ApplyCarrierRendererColor(Carrier carrier, Renderer renderer, Colors colors)
+    private static Material ApplyCarrierRendererColor(Carrier carrier, Renderer renderer, Colors colors)
     {
-        if (renderer == null) return;
+        if (renderer == null) return null;
 
         var material = default(Material);
         if (carrier.IsSink() && carrier.OnlyCompatibleColor)
@@ -563,7 +565,22 @@ public static class LevelSandboxGenerator
             if (source != null) material = source.sharedMaterials[0];
         }
 
-        if (material == null) return;
+        SetRendererMaterial(renderer, material);
+        return material;
+    }
+
+    /// <summary>Paints every AdditionalModels renderer with the same material the head just got.</summary>
+    private static void ApplyAdditionalModelColors(Carrier carrier, Material headMaterial)
+    {
+        if (carrier.AdditionalModels == null || headMaterial == null) return;
+
+        foreach (var renderer in carrier.AdditionalModels)
+            SetRendererMaterial(renderer, headMaterial);
+    }
+
+    private static void SetRendererMaterial(Renderer renderer, Material material)
+    {
+        if (renderer == null || material == null) return;
 
         var materials = renderer.sharedMaterials;
         if (materials.Length == 0 || materials[0] == material) return;

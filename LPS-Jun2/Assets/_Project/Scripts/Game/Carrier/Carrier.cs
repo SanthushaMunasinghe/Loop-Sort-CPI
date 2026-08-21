@@ -28,6 +28,11 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
     [field: SerializeField] public List<MeshRenderer> GroupBlocks { get; private set; }
     [field: SerializeField] public List<MeshFilter> GroupBlockFilters { get; private set; }
 
+    [field: Header("Additional Models")]
+    [field: Tooltip("Extra renderers to paint alongside the head/back-top when Apply Carrier Modes " +
+                    "is pressed. Each one is set to whatever colour the head renderer ends up with.")]
+    [field: SerializeField] public List<Renderer> AdditionalModels { get; private set; }
+
     // Serialized so carriers placed by hand in a level test scene can be typed in the inspector.
     // SetType still wins for carriers spawned from the sheet.
     [field: SerializeField] public CarrierSheet.CarrierType Type { get; private set; }
