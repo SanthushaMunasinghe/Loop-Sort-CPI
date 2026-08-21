@@ -37,15 +37,17 @@ using UnityEditor.SceneManagement;
 /// <c>LevelSandbox</c>/<c>CarrierConfig</c> reference — attach it straight to the Conveyor prefab and
 /// it works standalone.</para>
 ///
-/// <para><b>Width Modifier.</b> Scales the belt's cross-section. A channel authored dead-centre (its
-/// mesh straddles the spline, offset zero either side — the belt's own single baked profile, and the
-/// collider's Surface/Ceil) gets its width from the mesh itself, so that is what gets scaled. A
-/// channel authored off-centre (the collider's Left/Right walls, offset out from the centreline) gets
-/// its width from how far out that offset sits, so scaling the mesh would only stretch the wall's own
-/// profile without moving it — the offset is what scales instead. Either way the very first Update
-/// Mesh press captures the untouched values as the modifier's baseline, so 1 always means "however the
-/// prefab was authored," not an assumed 1-unit width, and pressing the button again at the same
-/// modifier is a no-op rather than compounding.</para>
+/// <para><b>Width Modifier / Side Wall Modifier.</b> Two independent scales over the same
+/// cross-section, split by how each channel is authored. A channel authored dead-centre (its mesh
+/// straddles the spline, offset zero either side — the belt's own single baked profile, and the
+/// collider's Surface/Ceil) is the walkway: Width Modifier scales its mesh. A channel authored
+/// off-centre (the collider's Left/Right walls, offset out from the centreline) is a side wall: Side
+/// Wall Modifier scales how far out that offset sits instead, since scaling the wall's own mesh would
+/// only stretch its profile without moving it. The belt mesh has no off-centre channel of its own, so
+/// Side Wall Modifier only ever affects the collider. Either way the very first Update Mesh press
+/// captures the untouched values as each modifier's baseline, so 1 always means "however the prefab
+/// was authored," not an assumed 1-unit value, and pressing the button again at the same modifier is
+/// a no-op rather than compounding.</para>
 ///
 /// <para><b>Editor only.</b> Every method lives inside <c>#if UNITY_EDITOR</c> and there is no
 /// Awake/Start/Update, so nothing here can execute in a player build. The serialized fields
@@ -94,15 +96,23 @@ public sealed class ConveyorMeshUpdater : MonoBehaviour
     [SerializeField] private float _meshDensity;
 
     [Header("Width")]
-    [Tooltip("Scale of the belt's cross-section, relative to however it was authored (captured the " +
-             "first time Update Mesh runs). 1 leaves the width untouched.")]
+    [Tooltip("Scale of the belt's walkway (the collider's Surface/Ceil and the belt's own single " +
+             "profile), relative to however it was authored (captured the first time Update Mesh " +
+             "runs). 1 leaves it untouched. Does not move the side walls — see Side Wall Modifier.")]
     [Min(0.01f)]
     [SerializeField] private float _widthModifier = 1f;
 
+    [Tooltip("How far out the collider's side walls sit from the centreline, relative to however " +
+             "far out they were authored (captured the first time Update Mesh runs). 1 leaves them " +
+             "untouched. The belt mesh has no separate wall channel, so this only ever moves the " +
+             "collider — pair it with Width Modifier if the visible belt edge should move too.")]
+    [Min(0.01f)]
+    [SerializeField] private float _sideWallModifier = 1f;
+
     [Header("Update")]
-    [Tooltip("Also refit the collider mesh to the spline and to the current Width Modifier. Turn " +
-             "this off only if the collider is being handled separately — without it blocks can fall " +
-             "through or off the edge of a reshaped or resized belt.")]
+    [Tooltip("Also refit the collider mesh to the spline and to the current Width Modifier and Side " +
+             "Wall Modifier. Turn this off only if the collider is being handled separately — " +
+             "without it blocks can fall through or off the edge of a reshaped or resized belt.")]
     [SerializeField] private bool _updateCollider = true;
 
     [Tooltip("Re-space the existing arrows evenly over the new length. Their count is left exactly " +
@@ -304,8 +314,11 @@ public sealed class ConveyorMeshUpdater : MonoBehaviour
         return result;
     }
 
-    // See the class summary for why a centred channel scales its mesh while an offset one scales
-    // its offset instead.
+    // A channel authored dead-centre (offset zero either side) is the walkway — Width Modifier scales
+    // its mesh. A channel authored off-centre (the collider's Left/Right walls) is a side wall — Side
+    // Wall Modifier scales how far out its offset sits instead, independently of the walkway, so the
+    // two can be tuned apart (e.g. widen the safety margin between belt edge and wall without moving
+    // the belt edge itself).
     private void ApplyWidth(SplineMesh mesh, List<ChannelWidthBase> bases)
     {
         if (mesh == null || bases == null) return;
@@ -327,8 +340,8 @@ public sealed class ConveyorMeshUpdater : MonoBehaviour
             }
             else
             {
-                channel.minOffset = new Vector2(baseValues.MinOffsetX * _widthModifier, channel.minOffset.y);
-                channel.maxOffset = new Vector2(baseValues.MaxOffsetX * _widthModifier, channel.maxOffset.y);
+                channel.minOffset = new Vector2(baseValues.MinOffsetX * _sideWallModifier, channel.minOffset.y);
+                channel.maxOffset = new Vector2(baseValues.MaxOffsetX * _sideWallModifier, channel.maxOffset.y);
             }
         }
     }
