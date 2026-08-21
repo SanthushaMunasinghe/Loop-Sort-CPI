@@ -52,6 +52,19 @@ public sealed class LevelSandbox : MonoBehaviour
     [Tooltip("Uniform local scale applied to each spawned empty carrier.")]
     [SerializeField] private float _emptyCarrierScale = 1f;
 
+    [Tooltip("Empty Group Limit each spawned empty carrier gets — caps how many colour groups it " +
+             "needs filled before it completes and leaves early. 4 matches the level's own group " +
+             "count exactly, so it fills fully same as before this field existed.")]
+    [SerializeField] private int _emptyCarrierGroupLimit = 4;
+
+    [Tooltip("On: spawn each row's empty carriers from Custom Empty Carrier Prefab instead of the " +
+             "Carriers data's default FeatureType.None prefab.")]
+    [SerializeField] private bool _useCustomEmptyCarrierPrefab;
+
+    [Tooltip("Prefab spawned for each empty carrier when Use Custom Empty Carrier Prefab is on. Must " +
+             "have a Carrier component.")]
+    [SerializeField] private Carrier _customEmptyCarrierPrefab;
+
     [Inject] private SceneScope _sceneScope;
 
     [Inject] private IPublisher<LevelBuildCompleteMessage> _levelBuildCompletePub;
@@ -74,6 +87,9 @@ public sealed class LevelSandbox : MonoBehaviour
     public float EmptyCarrierSpacing => _emptyCarrierSpacing;
     public bool EmptyCarrierPositiveZ => _emptyCarrierPositiveZ;
     public float EmptyCarrierScale => _emptyCarrierScale;
+    public int EmptyCarrierGroupLimit => _emptyCarrierGroupLimit;
+    public bool UseCustomEmptyCarrierPrefab => _useCustomEmptyCarrierPrefab;
+    public Carrier CustomEmptyCarrierPrefab => _customEmptyCarrierPrefab;
 
     private void Awake()
     {

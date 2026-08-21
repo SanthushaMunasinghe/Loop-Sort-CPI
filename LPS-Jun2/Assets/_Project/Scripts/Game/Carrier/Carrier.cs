@@ -53,6 +53,13 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
                     "is higher.")]
     [field: SerializeField] public int StartGroupCount { get; private set; } = 4;
 
+    [field: Header("Empty Fill")]
+    [field: Tooltip("Empty mode only: caps how many of the level's colour groups this sink needs " +
+                    "filled before it completes and leaves — e.g. 2 out of the level's 4 groups " +
+                    "completes it half full. 0 leaves it uncapped, filling every group same as before " +
+                    "this field existed.")]
+    [field: SerializeField] public int EmptyGroupLimit { get; private set; } = 4;
+
     [Inject] private CarrierConfig _config;
     [Inject] private AudioModule _audioModule;
     [Inject] private HapticModule _hapticModule;
@@ -200,6 +207,13 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
     {
         CompatibleColor = colorType;
         OnlyCompatibleColor = onlyCompatibleColor;
+        UnityEditor.EditorUtility.SetDirty(this);
+    }
+
+    /// <summary>Used by the Empty Carrier Rows generator to set this sink's group fill cap.</summary>
+    public void EditorSetEmptyGroupLimit(int groupLimit)
+    {
+        EmptyGroupLimit = groupLimit;
         UnityEditor.EditorUtility.SetDirty(this);
     }
 #endif
@@ -385,7 +399,7 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
             await UniTask.Yield(cancellationToken: SceneLoadToken);
 
         ApplyCheckmarkMotion();
-        await ApplyCloseBackMotion();
+        await ApplyCloseBackMotion(closeWeight: GetCloseBackWeight());
 
         _carrierBackClosedPub.Publish(new CarrierBackClosedMessage
         {
@@ -562,7 +576,27 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
 
     public int GetMaxBlockCount()
     {
-        return _customMaxBlockCount > 0 ? _customMaxBlockCount : _conveyor.MaxBlockCount;
+        if (_customMaxBlockCount > 0) return _customMaxBlockCount;
+
+        var maxBlockCount = _conveyor.MaxBlockCount;
+        if (Mode == CarrierMode.Empty && EmptyGroupLimit > 0 && _conveyor.GroupBlockCount > 0)
+            maxBlockCount = Mathf.Min(maxBlockCount, EmptyGroupLimit * _conveyor.GroupBlockCount);
+
+        return maxBlockCount;
+    }
+
+    /// <summary>Empty mode only: how far ApplyCloseBackMotion's top blend shape should close when this
+    /// sink completes — scaled down from a full 100 by EmptyGroupLimit's fraction of the level's own
+    /// group count, so a sink capped to half its groups visually closes only halfway.</summary>
+    public float GetCloseBackWeight()
+    {
+        if (Mode != CarrierMode.Empty || EmptyGroupLimit <= 0 || _conveyor.GroupBlockCount <= 0)
+            return 100f;
+
+        var totalGroupCount = _conveyor.MaxBlockCount / (float)_conveyor.GroupBlockCount;
+        if (totalGroupCount <= 0f) return 100f;
+
+        return Mathf.Clamp01(EmptyGroupLimit / totalGroupCount) * 100f;
     }
 
     public int GetAvailableSpaceCount()

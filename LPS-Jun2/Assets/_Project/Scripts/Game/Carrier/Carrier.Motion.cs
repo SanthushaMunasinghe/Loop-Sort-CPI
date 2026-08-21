@@ -62,7 +62,7 @@ public partial class Carrier
         BackTopRenderer.gameObject.SetActive(false);
     }
 
-    public async UniTask ApplyCloseBackMotion(bool immediate = false)
+    public async UniTask ApplyCloseBackMotion(bool immediate = false, float closeWeight = 100f)
     {
         if (BackRearRenderer == null || BackTopRenderer == null) return;
         _backMotions.Cancel();
@@ -71,7 +71,7 @@ public partial class Carrier
         {
             BackTopRenderer.gameObject.SetActive(true);
             BackRearRenderer.gameObject.SetActive(true);
-            BackTopRenderer.SetBlendShapeWeight(0, 100f);
+            BackTopRenderer.SetBlendShapeWeight(0, closeWeight);
             BackRearRenderer.SetBlendShapeWeight(0, 100f);
             return;
         }
@@ -80,7 +80,7 @@ public partial class Carrier
             BackRearRenderer.gameObject.SetActive(false);
             BackTopRenderer.SetBlendShapeWeight(0, 0f);
             BackTopRenderer.gameObject.SetActive(true);
-            await LMotion.Create(0f, 100f, .6f)
+            await LMotion.Create(0f, closeWeight, .6f)
                 .BindToBlendShape(BackTopRenderer, 0)
                 .AddTo(this)
                 .AddTo(_backMotions)

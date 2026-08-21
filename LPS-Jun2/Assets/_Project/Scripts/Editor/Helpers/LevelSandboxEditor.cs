@@ -439,7 +439,8 @@ public sealed class LevelSandboxEditor : Editor
             "Spawns evenly spaced empty carriers under each Empty Carrier Row Parent, adds them to " +
             "SceneScope's Empty Carriers list, and records their row order in Empty Carrier Rows. " +
             "Press again to clear the previous rows and respawn. Enable SceneScope's Use Empty Carrier " +
-            "Rows toggle to make rows fill front-to-back at runtime.",
+            "Rows toggle to make rows fill front-to-back at runtime. Enable Use Custom Empty Carrier " +
+            "Prefab to spawn from Custom Empty Carrier Prefab instead of the Carriers data's default.",
             MessageType.None);
     }
 
@@ -454,11 +455,25 @@ public sealed class LevelSandboxEditor : Editor
 
         if (!ResolveDataAssets(scope, out var assets)) return;
 
-        var carrierPrefab = assets.Carriers.Get(FeatureType.None).Prefab;
-        if (carrierPrefab == null)
+        Carrier carrierPrefab;
+        if (Sandbox.UseCustomEmptyCarrierPrefab)
         {
-            Debug.LogError("<b>Level Sandbox</b>: Carriers data has no prefab for FeatureType.None.", Sandbox);
-            return;
+            carrierPrefab = Sandbox.CustomEmptyCarrierPrefab;
+            if (carrierPrefab == null)
+            {
+                Debug.LogError("<b>Level Sandbox</b>: Use Custom Empty Carrier Prefab is on but no " +
+                               "Custom Empty Carrier Prefab is assigned.", Sandbox);
+                return;
+            }
+        }
+        else
+        {
+            carrierPrefab = assets.Carriers.Get(FeatureType.None).Prefab;
+            if (carrierPrefab == null)
+            {
+                Debug.LogError("<b>Level Sandbox</b>: Carriers data has no prefab for FeatureType.None.", Sandbox);
+                return;
+            }
         }
 
         var rowParents = Sandbox.EmptyCarrierRowParents;
@@ -489,7 +504,7 @@ public sealed class LevelSandboxEditor : Editor
 
         var created = LevelSandboxGenerator.GenerateEmptyCarrierRows(rowParents, Sandbox.EmptyCarriersPerRow,
             Sandbox.EmptyCarrierSpacing, Sandbox.EmptyCarrierPositiveZ, Sandbox.EmptyCarrierScale,
-            scope.BlockColors, carrierPrefab);
+            Sandbox.EmptyCarrierGroupLimit, scope.BlockColors, carrierPrefab);
         AddToEmptyCarriers(scope, created);
         UpdateEmptyCarrierRows(scope, existing, created);
 

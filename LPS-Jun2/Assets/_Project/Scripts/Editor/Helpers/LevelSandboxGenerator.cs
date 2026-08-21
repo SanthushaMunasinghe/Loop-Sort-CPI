@@ -243,7 +243,8 @@ public static class LevelSandboxGenerator
     /// row lands exactly on the row parent's position; the rest step along its local Z axis.
     /// </summary>
     public static List<Carrier> GenerateEmptyCarrierRows(IReadOnlyList<Transform> rowParents, int countPerRow,
-        float spacing, bool positiveZ, float scale, IReadOnlyList<ColorType> blockColors, Carrier carrierPrefab)
+        float spacing, bool positiveZ, float scale, int groupLimit, IReadOnlyList<ColorType> blockColors,
+        Carrier carrierPrefab)
     {
         var created = new List<Carrier>();
         if (rowParents == null) return created;
@@ -271,6 +272,7 @@ public static class LevelSandboxGenerator
                 carrier.transform.localScale = Vector3.one * scale;
                 carrier.EditorSetMode(CarrierMode.Empty);
                 carrier.EditorSetCompatibleColor(blockColors[Random.Range(0, blockColors.Count)], true);
+                carrier.EditorSetEmptyGroupLimit(groupLimit);
 
                 Undo.RegisterCreatedObjectUndo(carrierGo, "Generate Empty Carrier Rows");
                 created.Add(carrier);
@@ -525,17 +527,26 @@ public static class LevelSandboxGenerator
     }
 
     /// <summary>
-    /// Paints a restricted sink's head with the colour it accepts, and puts every other carrier's head
-    /// back to the prefab material so toggling the option off and pressing the button again cleans up.
+    /// Paints a restricted sink's head and back-top (the "top part" that closes on completion) with
+    /// the colour it accepts, and puts every other carrier's back to the prefab material so toggling
+    /// the option off and pressing the button again cleans up.
     ///
     /// This survives Play untouched: Carrier.Awake calls base.Awake — and so OnRent's
     /// InjectMaterial(_originalMaterial) — before _originalMaterial is read off the head, so that call
-    /// no-ops on a scene carrier's first rent and what is written here stays put.
+    /// no-ops on a scene carrier's first rent and what is written here stays put. At run time
+    /// InjectMaterial re-applies that same captured head material to BackTopRenderer too (both are
+    /// registered under the "Color" key on the carrier's RendererPropertyRegistry), so painting them
+    /// the same colour here just previews at edit time what already happens at Play time.
     /// </summary>
     public static void ApplyCarrierHeadColor(Carrier carrier, Colors colors)
     {
-        var headRenderer = carrier.HeadRenderer;
-        if (headRenderer == null) return;
+        ApplyCarrierRendererColor(carrier, carrier.HeadRenderer, colors);
+        ApplyCarrierRendererColor(carrier, carrier.BackTopRenderer, colors);
+    }
+
+    private static void ApplyCarrierRendererColor(Carrier carrier, Renderer renderer, Colors colors)
+    {
+        if (renderer == null) return;
 
         var material = default(Material);
         if (carrier.IsSink() && carrier.OnlyCompatibleColor)
@@ -544,22 +555,22 @@ public static class LevelSandboxGenerator
             if (material == null)
                 Debug.LogWarning($"<b>Level Sandbox</b>: '{carrier.name}' only takes " +
                                  $"{carrier.CompatibleColor}, which has no entry in the Colors asset. " +
-                                 "Leaving its head alone.", carrier);
+                                 "Leaving its renderer alone.", carrier);
         }
         else
         {
-            var source = PrefabUtility.GetCorrespondingObjectFromSource(headRenderer);
+            var source = PrefabUtility.GetCorrespondingObjectFromSource(renderer);
             if (source != null) material = source.sharedMaterials[0];
         }
 
         if (material == null) return;
 
-        var materials = headRenderer.sharedMaterials;
+        var materials = renderer.sharedMaterials;
         if (materials.Length == 0 || materials[0] == material) return;
 
-        Undo.RecordObject(headRenderer, "Apply Carrier Modes");
+        Undo.RecordObject(renderer, "Apply Carrier Modes");
         materials[0] = material;
-        headRenderer.sharedMaterials = materials;
+        renderer.sharedMaterials = materials;
     }
 
     private static void ConfigureColliderMesh(GameObject colliderGo, SplineComputer splineComputer,
