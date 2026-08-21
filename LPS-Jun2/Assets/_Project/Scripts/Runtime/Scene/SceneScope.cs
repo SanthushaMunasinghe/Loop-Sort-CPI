@@ -46,6 +46,10 @@ public sealed class SceneScope : LifetimeScope
              "spline (point 1) and ride it to the last point, once its lid finishes closing.")]
     [SerializeField] private float _emptyCarrierExitDuration = 1.5f;
 
+    [Tooltip("How long a carrier waits after being clicked before its blocks jump to the conveyor. " +
+             "The carrier can't be clicked again until this elapses.")]
+    [SerializeField] private float _carrierTransferClickDelay = .5f;
+
     [Tooltip("Carriers this scene treats as block sources. Only carriers in this list or Empty " +
              "Carriers actually function at runtime — everything else is inert. Populated by hand.")]
     [SerializeField] private List<Carrier> _startCarriers = new();
@@ -67,6 +71,23 @@ public sealed class SceneScope : LifetimeScope
     [Tooltip("Scales a block on top of its normal size while it's jumping to and sitting on the " +
              "conveyor belt. Reset to a block's normal scale the moment it lands back in a carrier.")]
     [SerializeField] private float _conveyorBlockScaleMultiplier = 1f;
+
+    [Tooltip("Overrides the conveyor's baked movement speed for this scene. Leave at 0 to keep the " +
+             "speed generated from the spline length (LevelSandbox.ConveyorSpeed).")]
+    [SerializeField] private float _conveyorSpeedOverride;
+
+    [Tooltip("Caps how many blocks the conveyor can hold across all its slots at once. Leave at 0 " +
+             "for no cap beyond what the belt's slot geometry already allows.")]
+    [SerializeField] private int _conveyorMaxBlockCount;
+
+    [Tooltip("Overrides how many blocks sit side by side in a single slot (the belt's lane width). " +
+             "Leave at 0 to use CarrierConfig's SlotElementCount for the active physics type.")]
+    [SerializeField] private int _conveyorSlotElementCountOverride;
+
+    [Tooltip("Overrides the gap between blocks sitting side by side in a slot. Raising Slot Element " +
+             "Count widens that row by (count - 1) * this value, so shrink this to keep it inside the " +
+             "belt. Leave at 0 to use ConveyorConfig's SlotElementOffset.")]
+    [SerializeField] private float _conveyorSlotElementOffsetOverride;
 
     [Header("Scene")]
     [Tooltip("Your camera. InteractionModule raycasts through it — without one there is no input.")]
@@ -100,7 +121,12 @@ public sealed class SceneScope : LifetimeScope
 
     public float GroupSlideDuration => _groupSlideDuration;
     public float EmptyCarrierExitDuration => _emptyCarrierExitDuration;
+    public float CarrierTransferClickDelay => _carrierTransferClickDelay;
     public float ConveyorBlockScaleMultiplier => _conveyorBlockScaleMultiplier;
+    public float ConveyorSpeedOverride => _conveyorSpeedOverride;
+    public int ConveyorMaxBlockCount => _conveyorMaxBlockCount;
+    public int ConveyorSlotElementCountOverride => _conveyorSlotElementCountOverride;
+    public float ConveyorSlotElementOffsetOverride => _conveyorSlotElementOffsetOverride;
     public IReadOnlyList<Carrier> StartCarriers => _startCarriers;
     public IReadOnlyList<Carrier> EmptyCarriers => _emptyCarriers;
     public IEnumerable<Carrier> AllCarriers => _startCarriers.Concat(_emptyCarriers);

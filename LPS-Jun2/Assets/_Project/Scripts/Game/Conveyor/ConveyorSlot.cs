@@ -62,9 +62,12 @@ public sealed class ConveyorSlot : GameBehaviourBase, IBlockContainer
 
         var idx = _blocks.Count;
         _blocks.Add(block);
-        var localPosition = Vector3.right * (idx * _config.SlotElementOffset);
-        localPosition += Vector3.left * ((_conveyor.SlotElementCount - 1) * _config.SlotElementOffset / 2f);
-        localPosition += Vector3.up * _config.SlotElementOffset / 2f;
+        var slotElementOffset = _sceneScope.ConveyorSlotElementOffsetOverride > 0f
+            ? _sceneScope.ConveyorSlotElementOffsetOverride
+            : _config.SlotElementOffset;
+        var localPosition = Vector3.right * (idx * slotElementOffset);
+        localPosition += Vector3.left * ((_conveyor.SlotElementCount - 1) * slotElementOffset / 2f);
+        localPosition += Vector3.up * slotElementOffset / 2f;
         if (!_blockPhysicsActives.Has(block)) _blockPhysicsActives.Add(block);
 
         var isPhysicsActive = _blockPhysicsConfig.Type != BlockPhysicsConfig.PhysicsType.None;

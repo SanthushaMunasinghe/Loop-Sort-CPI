@@ -13,6 +13,7 @@ public sealed class Conveyor : GameBehaviourBase
     [Inject] private MaterialPropertyBlock _propertyBlock;
     [Inject] private SplineComputer _splineComputer;
     [Inject] private RemoteConfigModule _remoteConfigModule;
+    [Inject] private SceneScope _sceneScope;
 
     [Inject] private ISubscriber<BlockTransferStartMessage> _blockTransferStartSub;
     [Inject] private ISubscriber<BlockTransferCompleteMessage> _blockTransferCompleteSub;
@@ -227,7 +228,9 @@ public sealed class Conveyor : GameBehaviourBase
     {
         var carrierSize = _carrierConfig.Sizes[_blockPhysicsConfig.Type];
         var size = args.Size;
-        SlotElementCount = carrierSize.SlotElementCount;
+        SlotElementCount = _sceneScope.ConveyorSlotElementCountOverride > 0
+            ? _sceneScope.ConveyorSlotElementCountOverride
+            : carrierSize.SlotElementCount;
         BlockSize = size;
         GroupBlockCount = size.x * size.y * carrierSize.SingleColorMultiplier;
         GroupSlotCount = GroupBlockCount / SlotElementCount;

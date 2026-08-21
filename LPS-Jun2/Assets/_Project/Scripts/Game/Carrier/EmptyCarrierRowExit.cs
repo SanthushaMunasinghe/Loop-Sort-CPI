@@ -43,6 +43,11 @@ public sealed class EmptyCarrierRowExit : GameBehaviourBase
     [Min(1)]
     [SerializeField] private int _shiftTriggerPointIndex = 4;
 
+    [Tooltip("How quickly the exiting carrier's facing catches up to the direction it's actually " +
+             "heading (Slerp-per-second). Higher is snappier, lower is smoother/laggier.")]
+    [Min(0.01f)]
+    [SerializeField] private float _rotationSmoothing = 8f;
+
     [Inject] private SceneScope _sceneScope;
 
     [Inject] private ISubscriber<CarrierCompleteMessage> _carrierCompleteSub;
@@ -173,22 +178,44 @@ public sealed class EmptyCarrierRowExit : GameBehaviourBase
         // duration so the hand-off from "lerp" to "follow" has no visible seam.
         const float lerpInPortion = .15f;
         var shiftStarted = false;
-        var previousPosition = startPosition;
+
+        // -Z is this carrier's modelled front, so it's -direction that needs to line up with where
+        // it's actually headed. Computed once here (flattened, so this only ever yaws — no pitch
+        // from the spline's own vertical shape) since the lerp-in leg is a straight line, unlike the
+        // curve it hands off to below.
+        var lerpDirection = initialPointPosition - startPosition;
+        lerpDirection.y = 0f;
+        var lerpRotation = lerpDirection.sqrMagnitude > 0.00001f
+            ? Quaternion.LookRotation(-lerpDirection.normalized)
+            : exitingT.rotation;
 
         await LMotion.Create(0f, 1f, _sceneScope.EmptyCarrierExitDuration)
             .WithEase(Ease.InOutSine)
             .Bind(u =>
             {
                 Vector3 position;
+                Quaternion targetRotation;
                 if (u < lerpInPortion)
                 {
                     position = Vector3.Lerp(startPosition, initialPointPosition, u / lerpInPortion);
+                    targetRotation = lerpRotation;
                 }
                 else
                 {
                     var splinePercent = DMath.Lerp(initialPointPercent, 1.0,
                         (u - lerpInPortion) / (1f - lerpInPortion));
-                    position = _splineComputer.EvaluatePosition(splinePercent);
+
+                    // Evaluate() samples the spline's own tangent rather than differencing this
+                    // frame's position against last frame's — that tangent is continuous along the
+                    // curve, so facing follows the path itself instead of snapping frame to frame.
+                    var sample = _splineComputer.Evaluate(splinePercent);
+                    position = sample.position;
+
+                    var forward = sample.forward;
+                    forward.y = 0f;
+                    targetRotation = forward.sqrMagnitude > 0.00001f
+                        ? Quaternion.LookRotation(-forward.normalized)
+                        : exitingT.rotation;
 
                     if (!shiftStarted && splinePercent >= triggerPercent)
                     {
@@ -200,13 +227,11 @@ public sealed class EmptyCarrierRowExit : GameBehaviourBase
                 position.y = startY;
                 exitingT.position = position;
 
-                // -Z is this carrier's modelled front, so it's -direction that needs to line up with
-                // where it's actually headed. Direction is taken from the Y-locked positions
-                // themselves, so this only ever yaws — no pitch from the spline's own vertical shape.
-                var direction = position - previousPosition;
-                if (direction.sqrMagnitude > 0.00001f)
-                    exitingT.rotation = Quaternion.LookRotation(-direction.normalized);
-                previousPosition = position;
+                // Smoothed rather than snapped straight to targetRotation, so the hand-off between
+                // the lerp-in leg and the curve — and any sharp turns along the curve itself — ease
+                // in instead of popping the carrier's facing instantly.
+                var t = 1f - Mathf.Exp(-_rotationSmoothing * Time.deltaTime);
+                exitingT.rotation = Quaternion.Slerp(exitingT.rotation, targetRotation, t);
             })
             .AddTo(this)
             .AddTo(_exitMotions)

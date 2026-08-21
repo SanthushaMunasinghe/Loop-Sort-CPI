@@ -16,6 +16,7 @@ public sealed class ConveyorSlotCreateSystem : SystemBase
 {
     [Inject] private Conveyor _conveyor;
     [Inject] private LevelSandbox _levelSandbox;
+    [Inject] private SceneScope _sceneScope;
 
     [Inject] private ISubscriber<LevelBuildCompleteMessage> _levelBuildCompleteSub;
 
@@ -57,7 +58,8 @@ public sealed class ConveyorSlotCreateSystem : SystemBase
 
         // Order matters: UpdateFollower copies Conveyor.Speed onto the follower at call time, and
         // slots are not in the _followers list that later speed changes iterate.
-        _conveyor.SetSpeed(_levelSandbox.ConveyorSpeed);
+        var speed = _sceneScope.ConveyorSpeedOverride > 0f ? _sceneScope.ConveyorSpeedOverride : _levelSandbox.ConveyorSpeed;
+        _conveyor.SetSpeed(speed);
         _conveyor.SetCollisionDistance(_levelSandbox.SlotCollisionDistance);
 
         foreach (var splineFollower in _slots)

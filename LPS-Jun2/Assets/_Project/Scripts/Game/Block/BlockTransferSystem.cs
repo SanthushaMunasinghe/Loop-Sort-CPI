@@ -302,6 +302,12 @@ public sealed class BlockTransferSystem : SystemBase
     private void TrimBlocks(List<Block> blocks)
     {
         var totalSlotCount = _conveyor.GetTotalSlotCount();
+        if (_sceneScope.ConveyorMaxBlockCount > 0)
+        {
+            var maxSlotCount = Mathf.Max(1, _sceneScope.ConveyorMaxBlockCount / _conveyor.SlotElementCount);
+            totalSlotCount = Mathf.Min(totalSlotCount, maxSlotCount);
+        }
+
         var blockCount = blocks.Count;
 
         if (_blockPhysicsConfig.Type == BlockPhysicsConfig.PhysicsType.None)

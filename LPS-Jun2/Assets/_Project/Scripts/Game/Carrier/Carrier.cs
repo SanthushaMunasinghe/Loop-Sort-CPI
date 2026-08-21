@@ -181,6 +181,22 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
         if (!CanTakeOutBlocks())
             return;
 
+        RunClickTransferDelay().Forget();
+    }
+
+    /// <summary>
+    /// Locks this carrier out of further clicks for SceneScope's CarrierTransferClickDelay, then
+    /// selects it — the same _isInteractionLocked flag other components already use to gate Interact,
+    /// so nothing further is needed to stop a second click landing mid-delay.
+    /// </summary>
+    private async UniTaskVoid RunClickTransferDelay()
+    {
+        DisableInteraction(gameObject);
+
+        await UniTask.Delay(TimeSpan.FromSeconds(_sceneScope.CarrierTransferClickDelay), cancellationToken: SceneLoadToken);
+
+        EnableInteraction(gameObject);
+
         _carrierSelectPub.Publish(new CarrierSelectMessage
         {
             Carrier = this
