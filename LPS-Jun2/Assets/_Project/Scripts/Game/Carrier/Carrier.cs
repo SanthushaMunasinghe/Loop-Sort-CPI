@@ -58,6 +58,18 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
                     "is higher.")]
     [field: SerializeField] public int StartGroupCount { get; private set; } = 4;
 
+    [field: Tooltip("Start mode only: paint the whole carrier one color instead of drawing per group " +
+                    "at random. Override Start Color Index indexes Block Colors directly (the full " +
+                    "list, unaffected by Scene Scope's Color Range).")]
+    [field: SerializeField] public bool OverrideStartColor { get; private set; }
+
+    [field: SerializeField] public int OverrideStartColorIndex { get; private set; }
+
+    [field: Tooltip("Start mode only: caps how many consecutive groups can land on the same color " +
+                    "when randomly drawn. 0 leaves it uncapped (Scene Scope's Prevent Single Color " +
+                    "Carriers is still the only guard). Ignored when Override Start Color is on.")]
+    [field: SerializeField] public int MaxConsecutiveSameColorGroups { get; private set; }
+
     [field: Header("Empty Fill")]
     [field: Tooltip("Empty mode only: caps how many of the level's colour groups this sink needs " +
                     "filled before it completes and leaves — e.g. 2 out of the level's 4 groups " +

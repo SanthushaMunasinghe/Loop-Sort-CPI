@@ -43,6 +43,13 @@ public sealed class SceneScope : LifetimeScope
              "color. Needs two usable Block Colors and two groups in the carrier to do anything.")]
     [SerializeField] private bool _preventSingleColorCarriers = true;
 
+    [Tooltip("Restricts random color draws (Start carrier groups, Empty carrier compatible colors, " +
+             "and the row/carrier consecutive-cap rerolls) to a sub-range of Block Colors, by index, " +
+             "inclusive. -1 on either end means no cap on that side. Explicit color overrides (Row " +
+             "Color Override, Carrier Override Start Color) always index the full list regardless.")]
+    [SerializeField] private int _colorRangeStart = -1;
+    [SerializeField] private int _colorRangeEnd = -1;
+
     [Header("Carriers")]
     [Tooltip("Start mode: how long the group slide-forward animation takes after a transfer batch " +
              "fully drains a colour group.")]
@@ -282,33 +289,8 @@ public sealed class SceneScope : LifetimeScope
     /// </summary>
     private void ApplyRandomBlockColors()
     {
-        var colors = _data?.OfType<Colors>().FirstOrDefault();
-        if (colors == null)
-        {
-            Debug.LogWarning($"<b>{nameof(SceneScope)}</b>: no Colors asset in Data. Playing the level " +
-                             "in the colors it was generated with.", this);
-            return;
-        }
-
-        using var p1 = ListPool<ColorType>.Get(out var palette);
-        foreach (var colorType in _blockColors)
-        {
-            if (colors.Get(colorType).Material == null)
-            {
-                Debug.LogWarning($"<b>{nameof(SceneScope)}</b>: Block Colors entry {colorType} has no " +
-                                 "entry in the Colors asset, skipping it.", this);
-                continue;
-            }
-
-            palette.Add(colorType);
-        }
-
-        if (palette.Count == 0)
-        {
-            Debug.LogWarning($"<b>{nameof(SceneScope)}</b>: Block Colors has no usable entry. Playing " +
-                             "the level in the colors it was generated with.", this);
-            return;
-        }
+        var palette = BuildRandomColorPalette();
+        if (palette.Count == 0) return;
 
         using var p2 = ListPool<string>.Get(out var log);
         foreach (var carrier in AllCarriers)
@@ -331,6 +313,101 @@ public sealed class SceneScope : LifetimeScope
         if (log.Count == 0) return;
 
         Debug.Log($"<b>{nameof(SceneScope)}</b>: random block colors — {string.Join("; ", log)}.", this);
+    }
+
+    /// <summary>
+    /// Block Colors, filtered to entries with a real material in the Colors asset and clamped to
+    /// Color Range — the set every random draw (Start carrier groups, Empty carrier compatible
+    /// colors, and the consecutive-cap rerolls on EmptyCarrierRowExit) picks from. Explicit color
+    /// overrides don't use this — they index Block Colors directly, full list.
+    /// </summary>
+    public List<ColorType> BuildRandomColorPalette()
+    {
+        var palette = new List<ColorType>();
+
+        var colors = _data?.OfType<Colors>().FirstOrDefault();
+        if (colors == null)
+        {
+            Debug.LogWarning($"<b>{nameof(SceneScope)}</b>: no Colors asset in Data. Playing the level " +
+                             "in the colors it was generated with.", this);
+            return palette;
+        }
+
+        var start = _colorRangeStart < 0 ? 0 : _colorRangeStart;
+        var end = _colorRangeEnd < 0 ? _blockColors.Count - 1 : _colorRangeEnd;
+        if (start > end || start >= _blockColors.Count || end < 0)
+        {
+            Debug.LogWarning($"<b>{nameof(SceneScope)}</b>: Color Range [{_colorRangeStart}, " +
+                             $"{_colorRangeEnd}] doesn't select anything in Block Colors " +
+                             $"({_blockColors.Count} entries). Using the full list.", this);
+            start = 0;
+            end = _blockColors.Count - 1;
+        }
+
+        end = Mathf.Min(end, _blockColors.Count - 1);
+
+        for (var i = start; i <= end; i++)
+        {
+            var colorType = _blockColors[i];
+            if (colors.Get(colorType).Material == null)
+            {
+                Debug.LogWarning($"<b>{nameof(SceneScope)}</b>: Block Colors entry {colorType} has no " +
+                                 "entry in the Colors asset, skipping it.", this);
+                continue;
+            }
+
+            palette.Add(colorType);
+        }
+
+        if (palette.Count == 0)
+            Debug.LogWarning($"<b>{nameof(SceneScope)}</b>: Block Colors has no usable entry in range. " +
+                             "Playing the level in the colors it was generated with.", this);
+
+        return palette;
+    }
+
+    /// <summary>
+    /// Draws `count` colors from palette, sequentially, never letting a run of the same color exceed
+    /// maxConsecutive (0 or less = unlimited). Walks forward through the palette from the streak
+    /// color to find a different one when the cap would be exceeded — same approach as the
+    /// single-color reroll in ApplyRandomCarrierColors below.
+    /// </summary>
+    public static List<ColorType> DrawWithConsecutiveCap(int count, List<ColorType> palette, int maxConsecutive)
+    {
+        var colorTypes = new List<ColorType>(count);
+        if (palette.Count == 0) return colorTypes;
+
+        ColorType? streakColor = null;
+        var streakLength = 0;
+
+        for (var i = 0; i < count; i++)
+        {
+            var colorType = palette.GetRandom();
+
+            if (maxConsecutive > 0 && streakColor != null && streakLength >= maxConsecutive && palette.Count > 1)
+            {
+                var start = palette.IndexOf(streakColor.Value);
+                for (var j = 1; j <= palette.Count; j++)
+                {
+                    var candidate = palette.GetWrapped(start + j);
+                    if (candidate == streakColor.Value) continue;
+
+                    colorType = candidate;
+                    break;
+                }
+            }
+
+            if (streakColor != null && colorType == streakColor.Value) streakLength++;
+            else
+            {
+                streakColor = colorType;
+                streakLength = 1;
+            }
+
+            colorTypes.Add(colorType);
+        }
+
+        return colorTypes;
     }
 
     /// <summary>
@@ -368,34 +445,63 @@ public sealed class SceneScope : LifetimeScope
 
         if (groups.Count == 0) return null;
 
-        var colorTypes = new List<ColorType>(groups.Count);
-        foreach (var _ in groups)
-            colorTypes.Add(palette.GetRandom());
-
-        // Every group landing on the same colour makes the whole carrier one solid block of colour,
-        // which is rarely what you want to test against. One redraw is enough to break it up.
-        if (_preventSingleColorCarriers && colorTypes.Count > 1 && palette.Count > 1)
+        List<ColorType> colorTypes;
+        if (carrier.OverrideStartColor)
         {
-            var isSingleColor = true;
-            foreach (var colorType in colorTypes)
-                if (colorType != colorTypes[0])
-                {
-                    isSingleColor = false;
-                    break;
-                }
+            // Deliberately monochrome: skip both the random draw and the consecutive-run guards
+            // below, they don't mean anything once every group is forced to the same color.
+            var colorType = carrier.OverrideStartColorIndex >= 0 && carrier.OverrideStartColorIndex < _blockColors.Count
+                ? _blockColors[carrier.OverrideStartColorIndex]
+                : (ColorType?)null;
 
-            // Walking on from the colour that was drawn rather than rerolling: a palette is allowed
-            // to list the same colour twice, and rerolling could then never find a different one.
-            if (isSingleColor)
+            if (colorType == null)
             {
-                var start = palette.IndexOf(colorTypes[0]);
-                for (var i = 1; i <= palette.Count; i++)
-                {
-                    var candidate = palette.GetWrapped(start + i);
-                    if (candidate == colorTypes[0]) continue;
+                Debug.LogWarning($"<b>{nameof(SceneScope)}</b>: '{carrier.name}' Override Start Color " +
+                                 $"Index {carrier.OverrideStartColorIndex} is out of range for Block " +
+                                 $"Colors ({_blockColors.Count} entries). Drawing randomly instead.", carrier);
+                colorType = palette.GetRandom();
+            }
 
-                    colorTypes[^1] = candidate;
-                    break;
+            colorTypes = new List<ColorType>(groups.Count);
+            for (var i = 0; i < groups.Count; i++) colorTypes.Add(colorType.Value);
+        }
+        else if (carrier.MaxConsecutiveSameColorGroups > 0)
+        {
+            // The cap already keeps every group from landing on the same color whenever it's below
+            // groups.Count, so Prevent Single Color Carriers' own fixup below would be redundant.
+            colorTypes = DrawWithConsecutiveCap(groups.Count, palette, carrier.MaxConsecutiveSameColorGroups);
+        }
+        else
+        {
+            colorTypes = new List<ColorType>(groups.Count);
+            foreach (var _ in groups)
+                colorTypes.Add(palette.GetRandom());
+
+            // Every group landing on the same colour makes the whole carrier one solid block of colour,
+            // which is rarely what you want to test against. One redraw is enough to break it up.
+            if (_preventSingleColorCarriers && colorTypes.Count > 1 && palette.Count > 1)
+            {
+                var isSingleColor = true;
+                foreach (var colorType in colorTypes)
+                    if (colorType != colorTypes[0])
+                    {
+                        isSingleColor = false;
+                        break;
+                    }
+
+                // Walking on from the colour that was drawn rather than rerolling: a palette is allowed
+                // to list the same colour twice, and rerolling could then never find a different one.
+                if (isSingleColor)
+                {
+                    var start = palette.IndexOf(colorTypes[0]);
+                    for (var i = 1; i <= palette.Count; i++)
+                    {
+                        var candidate = palette.GetWrapped(start + i);
+                        if (candidate == colorTypes[0]) continue;
+
+                        colorTypes[^1] = candidate;
+                        break;
+                    }
                 }
             }
         }

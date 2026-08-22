@@ -25,7 +25,13 @@ using VContainer;
 /// row's exit path. Row order is read from this transform's children directly, in hierarchy order —
 /// the same order the generator created them in — so this needs nothing from SceneScope's own
 /// EmptyCarrierRows list beyond the shared duration fields.
+///
+/// -50 execution order: strictly between SceneScope's -100 (where every carrier first draws an
+/// independent random compatible color) and every Carrier's default 0 (where OnRent reads
+/// CompatibleColor to paint its truck color). That guarantees this row's Color Override/Max
+/// Consecutive Same Color Carriers below always get the final say before anything renders.
 /// </summary>
+[DefaultExecutionOrder(-50)]
 public sealed class EmptyCarrierRowExit : GameBehaviourBase
 {
     [Tooltip("This row's exit path. Auto-filled from this GameObject.")]
@@ -47,6 +53,17 @@ public sealed class EmptyCarrierRowExit : GameBehaviourBase
              "heading (Slerp-per-second). Higher is snappier, lower is smoother/laggier.")]
     [Min(0.01f)]
     [SerializeField] private float _rotationSmoothing = 8f;
+
+    [Header("Color")]
+    [Tooltip("Fix every carrier in this row to one compatible color instead of each drawing " +
+             "independently. Override Color Index indexes Block Colors directly (the full list, " +
+             "unaffected by Scene Scope's Color Range).")]
+    [SerializeField] private bool _overrideColor;
+    [SerializeField] private int _overrideColorIndex;
+
+    [Tooltip("Caps how many consecutive carriers in this row can land on the same compatible color " +
+             "when randomly drawn. 0 leaves it uncapped. Ignored when Override Color is on.")]
+    [SerializeField] private int _maxConsecutiveSameColorCarriers;
 
     [Inject] private SceneScope _sceneScope;
 
@@ -72,6 +89,7 @@ public sealed class EmptyCarrierRowExit : GameBehaviourBase
         if (_splineComputer == null) _splineComputer = GetComponent<SplineComputer>();
 
         CaptureRow();
+        ApplyRowColorSettings();
     }
 
     protected override void BuildMessages(DisposableBagBuilder bag)
@@ -98,6 +116,43 @@ public sealed class EmptyCarrierRowExit : GameBehaviourBase
             _carriers.Add(carrier);
             _rowSeatPositions.Add(carrier.transform.position);
         }
+    }
+
+    /// <summary>
+    /// Settles this row's compatible colors on top of whatever SceneScope's own -100 Awake pass
+    /// already drew for each carrier independently: Override Color forces every carrier in the row
+    /// to the same one, otherwise Max Consecutive Same Color Carriers re-draws the whole row
+    /// sequentially with that cap. Left alone (both off) when neither is set, so the row keeps
+    /// SceneScope's independent per-carrier draws.
+    /// </summary>
+    private void ApplyRowColorSettings()
+    {
+        if (_overrideColor)
+        {
+            var blockColors = _sceneScope.BlockColors;
+            if (_overrideColorIndex < 0 || _overrideColorIndex >= blockColors.Count)
+            {
+                Debug.LogWarning($"<b>{nameof(EmptyCarrierRowExit)}</b>: {name}'s Override Color Index " +
+                                 $"{_overrideColorIndex} is out of range for Block Colors " +
+                                 $"({blockColors.Count} entries). Leaving this row's carriers as drawn.", this);
+                return;
+            }
+
+            var colorType = blockColors[_overrideColorIndex];
+            foreach (var carrier in _carriers)
+                if (carrier != null && carrier.IsSink()) carrier.SetCompatibleColor(colorType);
+
+            return;
+        }
+
+        if (_maxConsecutiveSameColorCarriers <= 0) return;
+
+        var palette = _sceneScope.BuildRandomColorPalette();
+        if (palette.Count == 0) return;
+
+        var colorTypes = SceneScope.DrawWithConsecutiveCap(_carriers.Count, palette, _maxConsecutiveSameColorCarriers);
+        for (var i = 0; i < _carriers.Count; i++)
+            if (_carriers[i] != null && _carriers[i].IsSink()) _carriers[i].SetCompatibleColor(colorTypes[i]);
     }
 
     // CarrierCompleteMessage fires the instant a carrier fills — synchronously, well before its lid
