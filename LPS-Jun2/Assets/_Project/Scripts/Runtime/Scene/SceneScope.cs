@@ -33,6 +33,12 @@ public sealed class SceneScope : LifetimeScope
              "in the Colors asset above; entries that have none are skipped.")]
     [SerializeField] private List<ColorType> _blockColors = new();
 
+    [Tooltip("Paint for an Empty carrier's own body (head/back-top/back-rear/AdditionalModels), " +
+             "index-paired with Block Colors above — same length, entry N here is what an Empty " +
+             "carrier looks like when it randomly draws Block Colors entry N as its compatible " +
+             "color. Needs a matching entry in the Colors asset above, same as Block Colors.")]
+    [SerializeField] private List<ColorType> _truckColors = new();
+
     [Tooltip("Reroll one of a carrier's color groups when the draw gives it every block in the same " +
              "color. Needs two usable Block Colors and two groups in the carrier to do anything.")]
     [SerializeField] private bool _preventSingleColorCarriers = true;
@@ -118,6 +124,9 @@ public sealed class SceneScope : LifetimeScope
 
     /// <summary>Also what the Sandbox's Apply Carrier Modes button fills a Start carrier from.</summary>
     public IReadOnlyList<ColorType> BlockColors => _blockColors;
+
+    /// <summary>Index-paired with BlockColors — see the field's tooltip.</summary>
+    public IReadOnlyList<ColorType> TruckColors => _truckColors;
 
     public float GroupSlideDuration => _groupSlideDuration;
     public float EmptyCarrierExitDuration => _emptyCarrierExitDuration;
@@ -308,9 +317,30 @@ public sealed class SceneScope : LifetimeScope
             if (colorTypes != null) log.Add($"{carrier.name} [{string.Join(", ", colorTypes)}]");
         }
 
+        if (_truckColors.Count != _blockColors.Count)
+            Debug.LogWarning($"<b>{nameof(SceneScope)}</b>: Truck Colors ({_truckColors.Count}) doesn't " +
+                             $"match Block Colors ({_blockColors.Count}). Empty carriers whose draw " +
+                             "lands outside Truck Colors fall back to their own compatible color.", this);
+
+        foreach (var carrier in EmptyCarriers)
+        {
+            if (carrier == null || !carrier.IsSink()) continue;
+            ApplyRandomCompatibleColor(carrier, palette);
+        }
+
         if (log.Count == 0) return;
 
         Debug.Log($"<b>{nameof(SceneScope)}</b>: random block colors — {string.Join("; ", log)}.", this);
+    }
+
+    /// <summary>
+    /// Draws one palette color as this sink's new accepted color — same draw Start carriers use.
+    /// OnRent resolves the matching TruckColors entry and paints the sink with it; see
+    /// Carrier.ApplyTruckColor.
+    /// </summary>
+    private void ApplyRandomCompatibleColor(Carrier carrier, List<ColorType> palette)
+    {
+        carrier.SetCompatibleColor(palette.GetRandom());
     }
 
     /// <summary>

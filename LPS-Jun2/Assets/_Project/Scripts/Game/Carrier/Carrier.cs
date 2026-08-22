@@ -121,6 +121,7 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
 
         RegisterView<Carrier>();
         InjectMaterial(_originalMaterial);
+        if (IsSink()) ApplyTruckColor();
         ApplyOpenBackMotion(immediate: true);
         View.GetImage(ImageRole.Checkmark).gameObject.SetActive(false);
 
@@ -206,6 +207,17 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
     public void SetType(CarrierSheet.CarrierType carrierType)
     {
         Type = carrierType;
+    }
+
+    /// <summary>
+    /// Rewrites this sink's accepted color — field-only, the same way Block.OverrideColorType works.
+    /// SceneScope calls this from its own Awake (-100), ahead of this carrier's own OnRent (0), so
+    /// the reroll lands before anything renders. OnRent resolves the matching truck color and paints
+    /// this carrier with it — see ApplyTruckColor.
+    /// </summary>
+    public void SetCompatibleColor(ColorType colorType)
+    {
+        CompatibleColor = colorType;
     }
 
 #if UNITY_EDITOR
@@ -434,6 +446,55 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
 
         var checkmark = View.GetImage(ImageRole.Checkmark);
         PrefabModule.Rent(_particles.CarrierComplete, checkmark.transform.position, Quaternion.identity);
+    }
+
+    /// <summary>
+    /// Looks up this sink's truck color — SceneScope's TruckColors entry at whatever index
+    /// CompatibleColor sits at in BlockColors, a separate Colors asset entry from the color this
+    /// sink actually accepts, then paints the head, back-top, back-rear and every AdditionalModels
+    /// renderer with its material. Falls back to the accepted color itself when the index can't be
+    /// resolved (CompatibleColor isn't in BlockColors, or TruckColors is shorter than BlockColors).
+    /// </summary>
+    private void ApplyTruckColor()
+    {
+        var blockColors = _sceneScope.BlockColors;
+        var truckColors = _sceneScope.TruckColors;
+
+        var truckColorType = CompatibleColor;
+        for (var i = 0; i < blockColors.Count; i++)
+        {
+            if (blockColors[i] != CompatibleColor) continue;
+            if (i < truckColors.Count) truckColorType = truckColors[i];
+            break;
+        }
+
+        var material = Colors.Get(truckColorType).Material;
+        if (material == null) return;
+
+        ApplyTruckMaterial(HeadRenderer, material);
+        ApplyTruckMaterial(BackTopRenderer, material);
+        ApplyTruckMaterial(BackRearRenderer, material);
+
+        if (AdditionalModels == null) return;
+        foreach (var renderer in AdditionalModels)
+            ApplyTruckMaterial(renderer, material);
+    }
+
+    /// <summary>
+    /// One direct material-slot-0 swap, used identically for every truck-painted renderer (head,
+    /// back-top, back-rear, AdditionalModels) so none of them can end up out of sync with the others.
+    /// </summary>
+    private static void ApplyTruckMaterial(Renderer renderer, Material material)
+    {
+        if (renderer == null) return;
+
+        using var p = UnityEngine.Pool.ListPool<Material>.Get(out var materials);
+        renderer.GetSharedMaterials(materials);
+        if (materials.Count == 0) return;
+
+        materials[0] = material;
+        renderer.SetSharedMaterials(materials);
+        renderer.SetPropertyBlock(null, 0);
     }
 
     public void EnableInteraction(GameObject source)
