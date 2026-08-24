@@ -9,4 +9,10 @@ public static class SceneManagerH
         var nextScene = activeSceneBuildIndex + 1;
         SceneManager.LoadScene(nextScene);
     }
+
+    public static void ReloadScene()
+    {
+        var activeScene = SceneManager.GetActiveScene();
+        SceneManager.LoadScene(activeScene.buildIndex);
+    }
 }

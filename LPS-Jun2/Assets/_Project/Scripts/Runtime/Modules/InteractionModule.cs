@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
@@ -6,7 +7,7 @@ using UnityEngine;
 using VContainer;
 using VContainer.Unity;
 
-public sealed class InteractionModule : ModuleBase, IStartable
+public sealed class InteractionModule : ModuleBase, IStartable, IDisposable
 {
     [Inject] private Camera _camera;
     [Inject] private HapticModule _hapticModule;
@@ -27,6 +28,13 @@ public sealed class InteractionModule : ModuleBase, IStartable
         LeanTouch.OnFingerDown += OnFingerDown;
         LeanTouch.OnFingerUpdate += OnFingerUpdate;
         LeanTouch.OnFingerUp += OnFingerUp;
+    }
+
+    public void Dispose()
+    {
+        LeanTouch.OnFingerDown -= OnFingerDown;
+        LeanTouch.OnFingerUpdate -= OnFingerUpdate;
+        LeanTouch.OnFingerUp -= OnFingerUp;
     }
 
     private void OnFingerDown(LeanFinger finger)

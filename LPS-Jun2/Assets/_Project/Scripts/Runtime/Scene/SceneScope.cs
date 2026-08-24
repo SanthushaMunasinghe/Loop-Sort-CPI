@@ -251,6 +251,18 @@ public sealed class SceneScope : LifetimeScope
     public GlobalTrigger GlobalTrigger => _globalTrigger;
     public SplineComputer SplineComputer => _splineComputer;
 
+    /// <summary>
+    /// Flips Global Trigger's BlockTrigger.IsActive rather than the GameObject itself — SetActive
+    /// would fire BlockTrigger.OnDisable and, since BindGlobalTrigger only ever runs once per level
+    /// (off LevelBuildCompleteMessage), permanently discard its routing listener on the first toggle.
+    /// </summary>
+    public void ToggleGlobalTrigger()
+    {
+        if (_globalTrigger == null) return;
+        if (!_globalTrigger.TryGetComponent<BlockTrigger>(out var blockTrigger)) return;
+        blockTrigger.SetActive(!blockTrigger.IsActive);
+    }
+
     private float _lastBlockStoredPlayTime = float.NegativeInfinity;
 
     /// <summary>
