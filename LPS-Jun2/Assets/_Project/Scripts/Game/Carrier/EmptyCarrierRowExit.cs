@@ -55,15 +55,38 @@ public sealed class EmptyCarrierRowExit : GameBehaviourBase
     [SerializeField] private float _rotationSmoothing = 8f;
 
     [Header("Color")]
-    [Tooltip("Fix every carrier in this row to one compatible color instead of each drawing " +
-             "independently. Override Color Index indexes Block Colors directly (the full list, " +
-             "unaffected by Scene Scope's Color Range).")]
+    [Tooltip("Highest-priority color source for this row's sink carriers. When on and Color Pattern " +
+             "has at least one color, it wins over Override Color and Max Consecutive Same Color " +
+             "Carriers below. If the asset is missing or empty, falls back to those in order instead.")]
+    [SerializeField] private bool _useColorPattern;
+    [SerializeField] private RowColorPattern _colorPattern;
+
+    [Tooltip("Second priority (after Color Pattern above) — fix every carrier in this row to one " +
+             "compatible color instead of each drawing independently. Override Color Index indexes " +
+             "Block Colors directly (the full list, unaffected by Scene Scope's Color Range).")]
     [SerializeField] private bool _overrideColor;
     [SerializeField] private int _overrideColorIndex;
 
     [Tooltip("Caps how many consecutive carriers in this row can land on the same compatible color " +
-             "when randomly drawn. 0 leaves it uncapped. Ignored when Override Color is on.")]
+             "when randomly drawn. 0 leaves it uncapped. Ignored when Color Pattern or Override Color " +
+             "is on.")]
     [SerializeField] private int _maxConsecutiveSameColorCarriers;
+
+    [Header("Start Position Lerp")]
+    [Tooltip("When on, this row starts offset along Z at Start Position Z instead of its authored " +
+             "position, and only reaches its authored position once LerpToOriginalPosition() runs " +
+             "(e.g. ShortcutManager's O key). When off, the row stays exactly where it's placed in " +
+             "the editor and never moves.")]
+    [SerializeField] private bool _useStartPositionLerp;
+
+    [Tooltip("World-space Z this row starts at when Use Start Position Lerp is on. X and Y are kept " +
+             "from the row's authored position.")]
+    [SerializeField] private float _startPositionZ;
+
+    [Tooltip("How long LerpToOriginalPosition() takes to move this row from Start Position Z back " +
+             "to its authored position.")]
+    [Min(0.01f)]
+    [SerializeField] private float _positionLerpDuration = 1f;
 
     [Inject] private SceneScope _sceneScope;
 
@@ -72,10 +95,12 @@ public sealed class EmptyCarrierRowExit : GameBehaviourBase
 
     private readonly CompositeMotionHandle _exitMotions = new();
     private readonly CompositeMotionHandle _shiftMotions = new();
+    private readonly CompositeMotionHandle _positionLerpMotions = new();
 
     private readonly List<Carrier> _carriers = new();
     private readonly List<Vector3> _rowSeatPositions = new();
     private int _exitedCount;
+    private Vector3 _originalPosition;
 
     private void Reset()
     {
@@ -88,8 +113,15 @@ public sealed class EmptyCarrierRowExit : GameBehaviourBase
 
         if (_splineComputer == null) _splineComputer = GetComponent<SplineComputer>();
 
+        _originalPosition = transform.position;
+
         CaptureRow();
         ApplyRowColorSettings();
+
+        _sceneScope.RegisterEmptyCarrierRowExit(this);
+
+        if (_useStartPositionLerp)
+            transform.position = new Vector3(_originalPosition.x, _originalPosition.y, _startPositionZ);
     }
 
     protected override void BuildMessages(DisposableBagBuilder bag)
@@ -120,13 +152,31 @@ public sealed class EmptyCarrierRowExit : GameBehaviourBase
 
     /// <summary>
     /// Settles this row's compatible colors on top of whatever SceneScope's own -100 Awake pass
-    /// already drew for each carrier independently: Override Color forces every carrier in the row
-    /// to the same one, otherwise Max Consecutive Same Color Carriers re-draws the whole row
-    /// sequentially with that cap. Left alone (both off) when neither is set, so the row keeps
+    /// already drew for each carrier independently: Color Pattern (highest priority) paints the row
+    /// from a reusable asset, wrapping if it's shorter than the row; else Override Color forces every
+    /// carrier in the row to the same one; otherwise Max Consecutive Same Color Carriers re-draws the
+    /// whole row sequentially with that cap. Left alone (all off) when none is set, so the row keeps
     /// SceneScope's independent per-carrier draws.
     /// </summary>
     private void ApplyRowColorSettings()
     {
+        if (_useColorPattern)
+        {
+            if (_colorPattern != null && _colorPattern.Colors.Count > 0)
+            {
+                var colors = _colorPattern.Colors;
+                for (var i = 0; i < _carriers.Count; i++)
+                    if (_carriers[i] != null && _carriers[i].IsSink())
+                        _carriers[i].SetCompatibleColor(colors[i % colors.Count]);
+
+                return;
+            }
+
+            Debug.LogWarning($"<b>{nameof(EmptyCarrierRowExit)}</b>: {name}'s Color Pattern is on but " +
+                             "the asset is missing or empty. Falling back to Override Color / Max " +
+                             "Consecutive Same Color Carriers.", this);
+        }
+
         if (_overrideColor)
         {
             var blockColors = _sceneScope.BlockColors;
@@ -330,5 +380,28 @@ public sealed class EmptyCarrierRowExit : GameBehaviourBase
 
         _exitedCount++;
         if (_exitedCount < _carriers.Count) _carriers[_exitedCount].EnableTransfer(gameObject);
+    }
+
+    /// <summary>
+    /// Lerps this row from wherever it currently sits back to its authored position. Safe no-op when
+    /// Use Start Position Lerp is off, since the row was never displaced from that position to begin
+    /// with. Called by SceneScope.LerpEmptyCarrierRows, e.g. via ShortcutManager's O key.
+    /// </summary>
+    public void LerpToOriginalPosition()
+    {
+        if (!_useStartPositionLerp) return;
+        RunPositionLerp().Forget();
+    }
+
+    private async UniTaskVoid RunPositionLerp()
+    {
+        _positionLerpMotions.Cancel();
+
+        await LMotion.Create(transform.position, _originalPosition, _positionLerpDuration)
+            .WithEase(Ease.InOutSine)
+            .BindToPosition(transform)
+            .AddTo(this)
+            .AddTo(_positionLerpMotions)
+            .ToUniTask(ReturnToken);
     }
 }

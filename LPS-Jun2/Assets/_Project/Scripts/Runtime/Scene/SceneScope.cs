@@ -80,6 +80,10 @@ public sealed class SceneScope : LifetimeScope
              "Sandbox's Generate Empty Carrier Rows button.")]
     [SerializeField] private List<EmptyCarrierRow> _emptyCarrierRows = new();
 
+    // Self-registered by each EmptyCarrierRowExit in its own Awake — not hand-populated, so this
+    // stays correct across however many rows the Level Sandbox generates without any manual wiring.
+    private readonly List<EmptyCarrierRowExit> _emptyCarrierRowExits = new();
+
     [Header("Conveyor")]
     [Tooltip("Scales a block on top of its normal size while it's jumping to and sitting on the " +
              "conveyor belt. Reset to a block's normal scale the moment it lands back in a carrier.")]
@@ -113,6 +117,9 @@ public sealed class SceneScope : LifetimeScope
     [Tooltip("The single global pickup trigger blocks pass through to be routed to a compatible, " +
              "unfinished Empty carrier anywhere in the level. Hand-placed in the scene, not generated.")]
     [SerializeField] private GlobalTrigger _globalTrigger;
+
+    [Tooltip("Hand-placed pointer GameObject toggled on/off by ShortcutManager's P key.")]
+    [SerializeField] private GameObject _pointer;
 
     [Tooltip("Played each time a block finishes its transition onto an Empty carrier (a sink) — i.e. " +
              "every time a block gets stored on the truck.")]
@@ -158,6 +165,22 @@ public sealed class SceneScope : LifetimeScope
 
     public bool UseEmptyCarrierRows => _useEmptyCarrierRows;
     public IReadOnlyList<EmptyCarrierRow> EmptyCarrierRows => _emptyCarrierRows;
+
+    /// <summary>Called by each EmptyCarrierRowExit's own Awake so ShortcutManager can drive every row
+    /// through SceneScope without any manual per-scene wiring.</summary>
+    public void RegisterEmptyCarrierRowExit(EmptyCarrierRowExit rowExit)
+    {
+        if (rowExit == null) return;
+        if (!_emptyCarrierRowExits.Contains(rowExit)) _emptyCarrierRowExits.Add(rowExit);
+    }
+
+    /// <summary>Lerps every registered row back to its authored position. Each row no-ops unless its
+    /// own Use Start Position Lerp toggle is on. See ShortcutManager's O key.</summary>
+    public void LerpEmptyCarrierRows()
+    {
+        foreach (var rowExit in _emptyCarrierRowExits)
+            if (rowExit != null) rowExit.LerpToOriginalPosition();
+    }
 
     /// <summary>
     /// First Empty carrier that's still a sink, isn't full, can begin a transfer, and accepts this
@@ -261,6 +284,26 @@ public sealed class SceneScope : LifetimeScope
         if (_globalTrigger == null) return;
         if (!_globalTrigger.TryGetComponent<BlockTrigger>(out var blockTrigger)) return;
         blockTrigger.SetActive(!blockTrigger.IsActive);
+    }
+
+    /// <summary>
+    /// Flips the Pointer GameObject active/inactive. Turning it on first moves it to the mouse
+    /// position — a raycast against the Default layer, the same hit test InteractionModule uses for
+    /// clicks — so it starts out pointing at whatever's under the cursor. See ShortcutManager's P key.
+    /// </summary>
+    public void TogglePointer()
+    {
+        if (_pointer == null) return;
+
+        var isActive = !_pointer.activeSelf;
+        if (isActive && _camera != null)
+        {
+            var ray = _camera.ScreenPointToRay(Input.mousePosition);
+            if (Physics.Raycast(ray, out var hit, 1000f, LayerMask.GetMask(LayerRefs.Default)))
+                _pointer.transform.position = hit.point;
+        }
+
+        _pointer.SetActive(isActive);
     }
 
     private float _lastBlockStoredPlayTime = float.NegativeInfinity;
@@ -539,6 +582,29 @@ public sealed class SceneScope : LifetimeScope
                         break;
                     }
                 }
+            }
+        }
+
+        // Color Pattern paints this carrier's groups starting from the last one (groups.Count - 1 —
+        // the front group, the first one this Start carrier actually dispenses) and works backward, a
+        // suffix overlay on top of whatever Override Start Color / Max Consecutive Same Color Groups /
+        // random draw above already filled every group with. Groups the pattern's blocks don't reach
+        // (or every group, if the asset is missing or empty) are left exactly as that fallback drew
+        // them, rather than looping the pattern back to its start.
+        if (carrier.UseColorPattern)
+        {
+            var colorPattern = carrier.ColorPattern;
+            if (colorPattern != null && colorPattern.Blocks.Count > 0)
+            {
+                var patternColors = colorPattern.GetColors(groups.Count);
+                for (var i = 0; i < patternColors.Count; i++)
+                    colorTypes[groups.Count - 1 - i] = patternColors[i];
+            }
+            else
+            {
+                Debug.LogWarning($"<b>{nameof(SceneScope)}</b>: '{carrier.name}' Use Color Pattern is " +
+                                 "on but Color Pattern is missing or empty. Falling back to Override " +
+                                 "Start Color / Max Consecutive Same Color Groups.", carrier);
             }
         }
 

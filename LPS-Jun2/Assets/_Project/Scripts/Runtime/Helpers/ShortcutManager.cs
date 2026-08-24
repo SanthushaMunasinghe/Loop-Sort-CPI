@@ -11,6 +11,8 @@ using UnityEngine;
 /// T - toggle the scene's Global Trigger on/off
 /// Q - start/stop Unity Recorder, using whatever settings are already set up in the Recorder window
 /// R - reload the active scene
+/// O - lerp every Empty Carrier Row with Use Start Position Lerp on back to its authored position
+/// P - toggle the scene's Pointer GameObject on/off
 /// </summary>
 public sealed class ShortcutManager : MonoBehaviour
 {
@@ -21,6 +23,8 @@ public sealed class ShortcutManager : MonoBehaviour
         if (InputH.GetKeyDown(KeyCode.T)) ToggleGlobalTrigger();
         if (InputH.GetKeyDown(KeyCode.Q)) ToggleRecording();
         if (InputH.GetKeyDown(KeyCode.R)) ReloadScene();
+        if (InputH.GetKeyDown(KeyCode.O)) LerpEmptyCarrierRows();
+        if (InputH.GetKeyDown(KeyCode.P)) TogglePointer();
     }
 
     private void ToggleGlobalTrigger()
@@ -55,6 +59,30 @@ public sealed class ShortcutManager : MonoBehaviour
     {
         Debug.Log($"<b>{nameof(ShortcutManager)}</b>: reloading scene.");
         SceneManagerH.ReloadScene();
+    }
+
+    private void LerpEmptyCarrierRows()
+    {
+        if (_sceneScope == null)
+        {
+            Debug.LogWarning($"<b>{nameof(ShortcutManager)}</b>: no Scene Scope assigned, can't lerp Empty Carrier Rows.", this);
+            return;
+        }
+
+        _sceneScope.LerpEmptyCarrierRows();
+        Debug.Log($"<b>{nameof(ShortcutManager)}</b>: triggered Empty Carrier Row position lerp.", this);
+    }
+
+    private void TogglePointer()
+    {
+        if (_sceneScope == null)
+        {
+            Debug.LogWarning($"<b>{nameof(ShortcutManager)}</b>: no Scene Scope assigned, can't toggle Pointer.", this);
+            return;
+        }
+
+        _sceneScope.TogglePointer();
+        Debug.Log($"<b>{nameof(ShortcutManager)}</b>: toggled Pointer.", this);
     }
 }
 #endif

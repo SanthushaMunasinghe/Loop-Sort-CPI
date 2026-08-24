@@ -58,9 +58,20 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
                     "is higher.")]
     [field: SerializeField] public int StartGroupCount { get; private set; } = 4;
 
+    [field: Tooltip("Start mode only: paints this carrier's groups from Color Pattern below, starting " +
+                    "at the last group (the front, the first one this carrier actually dispenses) and " +
+                    "working backward. Groups the pattern's blocks don't reach — or every group, if " +
+                    "the asset is missing or empty — fall back to Override Start Color / Max " +
+                    "Consecutive Same Color Groups below instead of looping the pattern back to its " +
+                    "start.")]
+    [field: SerializeField] public bool UseColorPattern { get; private set; }
+
+    [field: SerializeField] public StartCarrierColorPattern ColorPattern { get; private set; }
+
     [field: Tooltip("Start mode only: paint the whole carrier one color instead of drawing per group " +
-                    "at random. Override Start Color Index indexes Block Colors directly (the full " +
-                    "list, unaffected by Scene Scope's Color Range).")]
+                    "at random — used for any groups Color Pattern above doesn't reach (or every " +
+                    "group, when Color Pattern is off). Override Start Color Index indexes Block " +
+                    "Colors directly (the full list, unaffected by Scene Scope's Color Range).")]
     [field: SerializeField] public bool OverrideStartColor { get; private set; }
 
     [field: SerializeField] public int OverrideStartColorIndex { get; private set; }
