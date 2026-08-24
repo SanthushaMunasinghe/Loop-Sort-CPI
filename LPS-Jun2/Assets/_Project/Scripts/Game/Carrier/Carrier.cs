@@ -77,6 +77,21 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
                     "this field existed.")]
     [field: SerializeField] public int EmptyGroupLimit { get; private set; } = 4;
 
+    [field: Header("Close Motion Override")]
+    [field: Tooltip("Override this carrier's close-motion timing instead of using the defaults baked " +
+                    "into ApplyCloseBackMotion. Turn on to speed up how fast the top roof (and any " +
+                    "other blend-shape renderer) closes after this carrier completes, and how long it " +
+                    "waits before starting, so it can leave the row sooner.")]
+    [field: SerializeField] public bool OverrideCloseMotion { get; private set; }
+
+    [field: Tooltip("Override only: seconds to wait after this carrier completes before the roof " +
+                    "starts closing. Lower to have it start closing sooner.")]
+    [field: SerializeField] public float CloseWaitTimeOverride { get; private set; }
+
+    [field: Tooltip("Override only: seconds the top roof blend shape takes to close (replaces the " +
+                    "default 0.6s). Lower to close — and leave — faster.")]
+    [field: SerializeField] public float CloseSpeedOverride { get; private set; } = .6f;
+
     [Inject] private CarrierConfig _config;
     [Inject] private AudioModule _audioModule;
     [Inject] private HapticModule _hapticModule;
@@ -381,6 +396,8 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
         {
             await block.ApplyMoveToCarrierMotion(targetPosition, targetRotation);
             ApplyAddBlockMotion();
+
+            if (IsSink()) _sceneScope.PlayBlockStoredSound();
         }
         else
         {
@@ -444,7 +461,12 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
             await UniTask.Yield(cancellationToken: SceneLoadToken);
 
         ApplyCheckmarkMotion();
-        await ApplyCloseBackMotion(closeWeight: GetCloseBackWeight());
+
+        if (OverrideCloseMotion && CloseWaitTimeOverride > 0f)
+            await UniTask.Delay(TimeSpan.FromSeconds(CloseWaitTimeOverride), cancellationToken: SceneLoadToken);
+
+        var closeDuration = OverrideCloseMotion ? CloseSpeedOverride : .6f;
+        await ApplyCloseBackMotion(closeWeight: GetCloseBackWeight(), closeDuration: closeDuration);
 
         _carrierBackClosedPub.Publish(new CarrierBackClosedMessage
         {

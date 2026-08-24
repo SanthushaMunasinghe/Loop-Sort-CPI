@@ -114,6 +114,14 @@ public sealed class SceneScope : LifetimeScope
              "unfinished Empty carrier anywhere in the level. Hand-placed in the scene, not generated.")]
     [SerializeField] private GlobalTrigger _globalTrigger;
 
+    [Tooltip("Played each time a block finishes its transition onto an Empty carrier (a sink) — i.e. " +
+             "every time a block gets stored on the truck.")]
+    [SerializeField] private AudioSource _blockStoredAudioSource;
+
+    [Tooltip("Minimum time between Block Stored Audio Source plays. Blocks that get stored before " +
+             "this elapses since the last play are silent instead of retriggering the clip.")]
+    [SerializeField] private float _blockStoredAudioMinInterval = .1f;
+
     [Header("Systems")]
     [Tooltip("Only these SystemBase types are constructed. Everything else in the project is ignored.")]
     [SerializeField]
@@ -242,6 +250,22 @@ public sealed class SceneScope : LifetimeScope
     public Conveyor Conveyor => _conveyor;
     public GlobalTrigger GlobalTrigger => _globalTrigger;
     public SplineComputer SplineComputer => _splineComputer;
+
+    private float _lastBlockStoredPlayTime = float.NegativeInfinity;
+
+    /// <summary>
+    /// Plays Block Stored Audio Source, but only if Block Stored Audio Min Interval has elapsed
+    /// since the last play — so a burst of blocks landing on a sink within the same instant doesn't
+    /// retrigger the clip on top of itself.
+    /// </summary>
+    public void PlayBlockStoredSound()
+    {
+        if (_blockStoredAudioSource == null) return;
+        if (Time.time - _lastBlockStoredPlayTime < _blockStoredAudioMinInterval) return;
+
+        _lastBlockStoredPlayTime = Time.time;
+        _blockStoredAudioSource.Play();
+    }
 
     private World _world;
     private readonly HashSet<Type> _explicitTypes = new();
