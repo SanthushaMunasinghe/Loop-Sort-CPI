@@ -132,10 +132,11 @@ public sealed class ConveyorMeshUpdaterEditor : Editor
         }
 
         EditorGUILayout.HelpBox(
-            "Update Mesh rebuilds the spline, refits the belt mesh (and the collider, if enabled) to " +
-            "the current Width Modifier, and re-spaces the existing arrows and slots — with them, the " +
-            "blocks riding each slot. It never adds, removes, or reshapes points; it only makes the " +
-            "conveyor match whatever shape is already on the spline.",
+            "Update Mesh rebuilds the spline, applies the current Thickness Modifier to every spline " +
+            "point's size, refits the belt mesh (and the collider, if enabled) to the current Width " +
+            "Modifier, and re-spaces the existing arrows and slots — with them, the blocks riding each " +
+            "slot. It never adds, removes, or reshapes points; it only makes the conveyor match " +
+            "whatever shape is already on the spline.",
             MessageType.None);
 
         if (EditorApplication.isPlayingOrWillChangePlaymode)

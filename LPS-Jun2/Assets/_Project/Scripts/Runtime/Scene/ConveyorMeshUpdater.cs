@@ -49,6 +49,13 @@ using UnityEditor.SceneManagement;
 /// was authored," not an assumed 1-unit value, and pressing the button again at the same modifier is
 /// a no-op rather than compounding.</para>
 ///
+/// <para><b>Thickness Modifier.</b> A different knob to either of the above: it scales each spline
+/// point's own <c>size</c> — the same value that drives the Spline Computer's "Draw Thickness" gizmo.
+/// Spline Mesh multiplies every channel's mesh scale and offset by that point size at each vertex, so
+/// this is the master scale Width Modifier and Side Wall Modifier are layered on top of; changing it
+/// is the only way to change what the Draw Thickness gizmo shows. Same baseline-on-first-press, same
+/// no-op-at-1 behaviour as the other two.</para>
+///
 /// <para><b>Editor only.</b> Every method lives inside <c>#if UNITY_EDITOR</c> and there is no
 /// Awake/Start/Update, so nothing here can execute in a player build. The serialized fields
 /// deliberately sit outside the guard so the component's serialized layout is identical in the editor
@@ -109,6 +116,14 @@ public sealed class ConveyorMeshUpdater : MonoBehaviour
     [Min(0.01f)]
     [SerializeField] private float _sideWallModifier = 1f;
 
+    [Header("Thickness")]
+    [Tooltip("Scale of the spline's own point size — the value driving the Spline Computer's " +
+             "\"Draw Thickness\" gizmo, and the master scale Spline Mesh multiplies every channel's " +
+             "width/offset by at each point. Relative to however each point was authored (captured " +
+             "the first time Update Mesh runs). 1 leaves it untouched.")]
+    [Min(0.01f)]
+    [SerializeField] private float _thicknessModifier = 1f;
+
     [Header("Update")]
     [Tooltip("Also refit the collider mesh to the spline and to the current Width Modifier and Side " +
              "Wall Modifier. Turn this off only if the collider is being handled separately — " +
@@ -128,6 +143,9 @@ public sealed class ConveyorMeshUpdater : MonoBehaviour
     // ── Width baseline (persisted; captured automatically, not hand-edited) ────────────────────
     [SerializeField, HideInInspector] private List<ChannelWidthBase> _beltWidthBase = new();
     [SerializeField, HideInInspector] private List<ChannelWidthBase> _colliderWidthBase = new();
+
+    // ── Thickness baseline (persisted; captured automatically, not hand-edited) ───────────────
+    [SerializeField, HideInInspector] private List<float> _pointSizeBase = new();
 
 #pragma warning restore CS0169, CS0414, CS0649
 
@@ -158,6 +176,7 @@ public sealed class ConveyorMeshUpdater : MonoBehaviour
         if (_conveyorConfig == null) _conveyorConfig = FindConveyorConfig();
 
         CaptureWidthBaseIfNeeded();
+        CapturePointSizeBaseIfNeeded();
     }
 
     // Any Spline Mesh among the children that is not the belt's own — matches however the collider
@@ -230,6 +249,11 @@ public sealed class ConveyorMeshUpdater : MonoBehaviour
         // re-acquires the MeshFilter/MeshRenderer/MeshCollider references RebuildImmediate() writes
         // into. Calling it here reproduces that without needing the user to click anything.
         EditorAwakeAll();
+
+        // Must happen before the spline rebuild below, so the forced rebuild bakes the new point
+        // sizes into the spline's evaluate cache before the belt/collider meshes sample it.
+        CapturePointSizeBaseIfNeeded();
+        ApplyThickness();
 
         // Forced and immediate, not the deferred Rebuild() — this button exists specifically to show
         // the result without needing the Scene view to select anything.
@@ -344,6 +368,31 @@ public sealed class ConveyorMeshUpdater : MonoBehaviour
                 channel.maxOffset = new Vector2(baseValues.MaxOffsetX * _sideWallModifier, channel.maxOffset.y);
             }
         }
+    }
+
+    // ── Thickness (the spline's own point size, not a channel value) ───────────────────────────
+
+    private void CapturePointSizeBaseIfNeeded()
+    {
+        if (_pointSizeBase.Count != 0 || _splineComputer == null) return;
+
+        _pointSizeBase = new List<float>(_splineComputer.pointCount);
+        for (var i = 0; i < _splineComputer.pointCount; i++)
+            _pointSizeBase.Add(_splineComputer.GetPointSize(i));
+    }
+
+    // Scales every point's size relative to its captured baseline. This is the value Spline Mesh
+    // multiplies every channel's mesh scale and offset by at each vertex (see SplineMesh.Extrude),
+    // and the same value the Spline Computer's Draw Thickness gizmo visualises — so unlike Width
+    // Modifier/Side Wall Modifier, which only ever touch a channel's own authored scale/offset, this
+    // is the only one of the three that actually changes what that gizmo shows.
+    private void ApplyThickness()
+    {
+        if (_splineComputer == null) return;
+
+        var count = Mathf.Min(_splineComputer.pointCount, _pointSizeBase.Count);
+        for (var i = 0; i < count; i++)
+            _splineComputer.SetPointSize(i, _pointSizeBase[i] * _thicknessModifier);
     }
 
     // ── Tile counts (the actual smoothness control) ──────────────────────────────────────────
