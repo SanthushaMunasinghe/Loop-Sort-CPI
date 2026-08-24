@@ -129,6 +129,14 @@ public sealed class SceneScope : LifetimeScope
              "this elapses since the last play are silent instead of retriggering the clip.")]
     [SerializeField] private float _blockStoredAudioMinInterval = .1f;
 
+    [Tooltip("Played each time a block finishes its jump motion onto a conveyor slot — i.e. every " +
+             "time a block lands on the conveyor belt.")]
+    [SerializeField] private AudioSource _blockConveyorJumpAudioSource;
+
+    [Tooltip("Minimum time between Block Conveyor Jump Audio Source plays. Blocks that land on the " +
+             "belt before this elapses since the last play are silent instead of retriggering the clip.")]
+    [SerializeField] private float _blockConveyorJumpAudioMinInterval = .1f;
+
     [Header("Systems")]
     [Tooltip("Only these SystemBase types are constructed. Everything else in the project is ignored.")]
     [SerializeField]
@@ -320,6 +328,22 @@ public sealed class SceneScope : LifetimeScope
 
         _lastBlockStoredPlayTime = Time.time;
         _blockStoredAudioSource.Play();
+    }
+
+    private float _lastBlockConveyorJumpPlayTime = float.NegativeInfinity;
+
+    /// <summary>
+    /// Plays Block Conveyor Jump Audio Source, but only if Block Conveyor Jump Audio Min Interval has
+    /// elapsed since the last play — so a burst of blocks landing on the belt within the same instant
+    /// doesn't retrigger the clip on top of itself.
+    /// </summary>
+    public void PlayBlockConveyorJumpSound()
+    {
+        if (_blockConveyorJumpAudioSource == null) return;
+        if (Time.time - _lastBlockConveyorJumpPlayTime < _blockConveyorJumpAudioMinInterval) return;
+
+        _lastBlockConveyorJumpPlayTime = Time.time;
+        _blockConveyorJumpAudioSource.Play();
     }
 
     private World _world;

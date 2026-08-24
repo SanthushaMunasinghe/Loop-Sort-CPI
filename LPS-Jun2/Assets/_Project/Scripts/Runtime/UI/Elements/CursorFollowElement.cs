@@ -7,8 +7,18 @@ public sealed class CursorFollowElement : MonoBehaviour
     [SerializeField] private Animator _animator;
     [SerializeField] private Camera _canvasCamera;
 
+    [Header("Follow Smoothing")]
+    [Tooltip("Time (seconds) to catch up to the cursor. Higher = smoother/laggier, lower = snappier.")]
+    [SerializeField] private float _smoothTime = 0.08f;
+    [Tooltip("Maximum move speed in local units/sec, so fast mouse flicks don't cause a huge jump.")]
+    [SerializeField] private float _maxSpeed = 4000f;
+    [Tooltip("Ignore cursor deltas smaller than this many local units to prevent jitter from tiny mouse movements.")]
+    [SerializeField] private float _deadZone = 0.5f;
+
     private RectTransform _rectTransform;
     private RectTransform _parentRectTransform;
+    private Vector2 _followVelocity;
+    private Vector2? _targetPoint;
 
     private void Awake()
     {
@@ -32,6 +42,17 @@ public sealed class CursorFollowElement : MonoBehaviour
                 _parentRectTransform, Input.mousePosition, _canvasCamera, out var localPoint))
             return;
 
-        _rectTransform.anchoredPosition = localPoint;
+        if (!_targetPoint.HasValue)
+        {
+            _targetPoint = localPoint;
+            _rectTransform.anchoredPosition = localPoint;
+            return;
+        }
+
+        if ((localPoint - _targetPoint.Value).sqrMagnitude >= _deadZone * _deadZone)
+            _targetPoint = localPoint;
+
+        _rectTransform.anchoredPosition = Vector2.SmoothDamp(
+            _rectTransform.anchoredPosition, _targetPoint.Value, ref _followVelocity, _smoothTime, _maxSpeed, Time.unscaledDeltaTime);
     }
 }

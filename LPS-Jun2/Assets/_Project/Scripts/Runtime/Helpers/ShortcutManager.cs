@@ -1,4 +1,5 @@
 #if UNITY_EDITOR
+using System.Collections;
 using UnityEditor;
 using UnityEditor.Recorder;
 using UnityEngine;
@@ -17,6 +18,12 @@ using UnityEngine;
 public sealed class ShortcutManager : MonoBehaviour
 {
     [SerializeField] private SceneScope _sceneScope;
+
+    [Tooltip("Recording auto-stops after this many seconds. Time left is logged every 10s, bold at " +
+             "the 10s and 5s marks.")]
+    [SerializeField] private float _recordingTimeoutSeconds = 60f;
+
+    private Coroutine _recordingTimeoutRoutine;
 
     private void Update()
     {
@@ -39,7 +46,7 @@ public sealed class ShortcutManager : MonoBehaviour
         Debug.Log($"<b>{nameof(ShortcutManager)}</b>: toggled Global Trigger.", this);
     }
 
-    private static void ToggleRecording()
+    private void ToggleRecording()
     {
         var recorderWindow = (RecorderWindow)EditorWindow.GetWindow(typeof(RecorderWindow), false, null, false);
 
@@ -47,12 +54,47 @@ public sealed class ShortcutManager : MonoBehaviour
         {
             recorderWindow.StartRecording();
             Debug.Log($"<b>{nameof(ShortcutManager)}</b>: started recording.");
+            _recordingTimeoutRoutine = StartCoroutine(RecordingTimeoutRoutine(recorderWindow));
         }
         else
         {
-            recorderWindow.StopRecording();
-            Debug.Log($"<b>{nameof(ShortcutManager)}</b>: stopped recording.");
+            StopRecording(recorderWindow);
         }
+    }
+
+    private void StopRecording(RecorderWindow recorderWindow)
+    {
+        recorderWindow.StopRecording();
+        Debug.Log($"<b>{nameof(ShortcutManager)}</b>: stopped recording.");
+
+        if (_recordingTimeoutRoutine == null) return;
+        StopCoroutine(_recordingTimeoutRoutine);
+        _recordingTimeoutRoutine = null;
+    }
+
+    private IEnumerator RecordingTimeoutRoutine(RecorderWindow recorderWindow)
+    {
+        var timeoutSeconds = Mathf.RoundToInt(_recordingTimeoutSeconds);
+        var elapsedSeconds = 0;
+
+        while (elapsedSeconds < timeoutSeconds)
+        {
+            yield return new WaitForSeconds(1f);
+            elapsedSeconds++;
+
+            var remainingSeconds = timeoutSeconds - elapsedSeconds;
+
+            if (remainingSeconds == 10 || remainingSeconds == 5)
+                Debug.Log($"<b>{nameof(ShortcutManager)}</b>: <b>recording — {remainingSeconds}s left.</b>");
+            else if (remainingSeconds > 0 && remainingSeconds % 10 == 0)
+                Debug.Log($"<b>{nameof(ShortcutManager)}</b>: recording — {remainingSeconds}s left.");
+        }
+
+        _recordingTimeoutRoutine = null;
+        if (!recorderWindow.IsRecording()) yield break;
+
+        Debug.Log($"<b>{nameof(ShortcutManager)}</b>: recording timeout reached, stopping automatically.");
+        StopRecording(recorderWindow);
     }
 
     private static void ReloadScene()

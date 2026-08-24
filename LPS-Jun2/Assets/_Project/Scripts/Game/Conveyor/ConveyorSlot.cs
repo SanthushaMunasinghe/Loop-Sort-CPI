@@ -102,6 +102,7 @@ public sealed class ConveyorSlot : GameBehaviourBase, IBlockContainer
             //     .WithSkipCount(1)
             //     .Play(_audioModule.Sounds.AddBlock);
             _hapticModule.PlaySoft();
+            _sceneScope.PlayBlockConveyorJumpSound();
         }
 
         // if (sizeTypeOne)
