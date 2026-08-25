@@ -514,6 +514,46 @@ public sealed class SceneScope : LifetimeScope
     }
 
     /// <summary>
+    /// Resolves an explicit color override from a set of indices into Block Colors, into the list of
+    /// colors those indices point at — indices out of range are skipped (each one warns). Empty when
+    /// none of the indices are valid, so the caller can fall back appropriately. Shared by
+    /// EmptyCarrierRowExit's Override Color Indices and Carrier's Override Start Color Indices — both
+    /// index Block Colors directly, full list, same as before this took an array.
+    /// </summary>
+    public static List<ColorType> ResolveOverridePalette(IReadOnlyList<int> indices, IReadOnlyList<ColorType> blockColors,
+        string ownerLabel, UnityEngine.Object contextObject)
+    {
+        var options = new List<ColorType>();
+        if (indices == null) return options;
+
+        foreach (var index in indices)
+        {
+            if (index < 0 || index >= blockColors.Count)
+            {
+                Debug.LogWarning($"<b>{nameof(SceneScope)}</b>: {ownerLabel} index {index} is out of range " +
+                                 $"for Block Colors ({blockColors.Count} entries). Skipping it.", contextObject);
+                continue;
+            }
+
+            options.Add(blockColors[index]);
+        }
+
+        return options;
+    }
+
+    /// <summary>
+    /// Same as ResolveOverridePalette, collapsed to one color picked at random among the valid
+    /// indices — for callers that force a single color rather than drawing from a restricted palette.
+    /// Null when none of the indices are valid.
+    /// </summary>
+    public static ColorType? ResolveOverrideColor(IReadOnlyList<int> indices, IReadOnlyList<ColorType> blockColors,
+        string ownerLabel, UnityEngine.Object contextObject)
+    {
+        var options = ResolveOverridePalette(indices, blockColors, ownerLabel, contextObject);
+        return options.Count > 0 ? options.GetRandom() : (ColorType?)null;
+    }
+
+    /// <summary>
     /// Draws one palette color as this sink's new accepted color — same draw Start carriers use.
     /// OnRent resolves the matching TruckColors entry and paints the sink with it; see
     /// Carrier.ApplyTruckColor.
@@ -548,41 +588,43 @@ public sealed class SceneScope : LifetimeScope
 
         if (groups.Count == 0) return null;
 
-        List<ColorType> colorTypes;
+        // Override Start Color restricts the draw pool to whatever colors its indices resolve to,
+        // rather than forcing every group to the exact same one — Max Consecutive Same Color Groups
+        // below still applies on top of it, same as it would against the full palette.
+        var drawPalette = palette;
         if (carrier.OverrideStartColor)
         {
-            // Deliberately monochrome: skip both the random draw and the consecutive-run guards
-            // below, they don't mean anything once every group is forced to the same color.
-            var colorType = carrier.OverrideStartColorIndex >= 0 && carrier.OverrideStartColorIndex < _blockColors.Count
-                ? _blockColors[carrier.OverrideStartColorIndex]
-                : (ColorType?)null;
+            var overridePalette = ResolveOverridePalette(carrier.OverrideStartColorIndices, _blockColors,
+                $"'{carrier.name}' Override Start Color Indices", carrier);
 
-            if (colorType == null)
+            if (overridePalette.Count == 0)
             {
                 Debug.LogWarning($"<b>{nameof(SceneScope)}</b>: '{carrier.name}' Override Start Color " +
-                                 $"Index {carrier.OverrideStartColorIndex} is out of range for Block " +
-                                 $"Colors ({_blockColors.Count} entries). Drawing randomly instead.", carrier);
-                colorType = palette.GetRandom();
+                                 "Indices has no valid entry in Block Colors " +
+                                 $"({_blockColors.Count} entries). Drawing from the full palette instead.", carrier);
             }
-
-            colorTypes = new List<ColorType>(groups.Count);
-            for (var i = 0; i < groups.Count; i++) colorTypes.Add(colorType.Value);
+            else
+            {
+                drawPalette = overridePalette;
+            }
         }
-        else if (carrier.MaxConsecutiveSameColorGroups > 0)
+
+        List<ColorType> colorTypes;
+        if (carrier.MaxConsecutiveSameColorGroups > 0)
         {
             // The cap already keeps every group from landing on the same color whenever it's below
             // groups.Count, so Prevent Single Color Carriers' own fixup below would be redundant.
-            colorTypes = DrawWithConsecutiveCap(groups.Count, palette, carrier.MaxConsecutiveSameColorGroups);
+            colorTypes = DrawWithConsecutiveCap(groups.Count, drawPalette, carrier.MaxConsecutiveSameColorGroups);
         }
         else
         {
             colorTypes = new List<ColorType>(groups.Count);
             foreach (var _ in groups)
-                colorTypes.Add(palette.GetRandom());
+                colorTypes.Add(drawPalette.GetRandom());
 
             // Every group landing on the same colour makes the whole carrier one solid block of colour,
             // which is rarely what you want to test against. One redraw is enough to break it up.
-            if (_preventSingleColorCarriers && colorTypes.Count > 1 && palette.Count > 1)
+            if (_preventSingleColorCarriers && colorTypes.Count > 1 && drawPalette.Count > 1)
             {
                 var isSingleColor = true;
                 foreach (var colorType in colorTypes)
@@ -596,10 +638,10 @@ public sealed class SceneScope : LifetimeScope
                 // to list the same colour twice, and rerolling could then never find a different one.
                 if (isSingleColor)
                 {
-                    var start = palette.IndexOf(colorTypes[0]);
-                    for (var i = 1; i <= palette.Count; i++)
+                    var start = drawPalette.IndexOf(colorTypes[0]);
+                    for (var i = 1; i <= drawPalette.Count; i++)
                     {
-                        var candidate = palette.GetWrapped(start + i);
+                        var candidate = drawPalette.GetWrapped(start + i);
                         if (candidate == colorTypes[0]) continue;
 
                         colorTypes[^1] = candidate;

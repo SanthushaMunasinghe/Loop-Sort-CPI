@@ -14,13 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::StartCarrierColorPattern
   _blocks:
   - Color:
-      <Base>k__BackingField: 13
-      <Shade>k__BackingField: 0
-    ConsecutiveGroupCount: 2
-  - Color:
       <Base>k__BackingField: 12
       <Shade>k__BackingField: 1
-    ConsecutiveGroupCount: 2
+    ConsecutiveGroupCount: 5
   - Color:
       <Base>k__BackingField: 3
       <Shade>k__BackingField: 0

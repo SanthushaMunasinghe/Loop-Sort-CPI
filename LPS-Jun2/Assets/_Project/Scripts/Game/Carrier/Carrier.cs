@@ -68,17 +68,20 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
 
     [field: SerializeField] public StartCarrierColorPattern ColorPattern { get; private set; }
 
-    [field: Tooltip("Start mode only: paint the whole carrier one color instead of drawing per group " +
-                    "at random — used for any groups Color Pattern above doesn't reach (or every " +
-                    "group, when Color Pattern is off). Override Start Color Index indexes Block " +
-                    "Colors directly (the full list, unaffected by Scene Scope's Color Range).")]
+    [field: Tooltip("Start mode only: restrict the per-group random draw to these colors instead of " +
+                    "Scene Scope's full palette — used for any groups Color Pattern above doesn't " +
+                    "reach (or every group, when Color Pattern is off). Still drawn per group (Max " +
+                    "Consecutive Same Color Groups below still applies), not forced to one color. " +
+                    "Override Start Color Indices indexes Block Colors directly (the full list, " +
+                    "unaffected by Scene Scope's Color Range).")]
     [field: SerializeField] public bool OverrideStartColor { get; private set; }
 
-    [field: SerializeField] public int OverrideStartColorIndex { get; private set; }
+    [field: SerializeField] public int[] OverrideStartColorIndices { get; private set; }
 
     [field: Tooltip("Start mode only: caps how many consecutive groups can land on the same color " +
                     "when randomly drawn. 0 leaves it uncapped (Scene Scope's Prevent Single Color " +
-                    "Carriers is still the only guard). Ignored when Override Start Color is on.")]
+                    "Carriers is still the only guard). Applies against Override Start Color's " +
+                    "restricted palette too, when that's on.")]
     [field: SerializeField] public int MaxConsecutiveSameColorGroups { get; private set; }
 
     [field: Header("Empty Fill")]

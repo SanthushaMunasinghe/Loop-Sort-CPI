@@ -62,10 +62,11 @@ public sealed class EmptyCarrierRowExit : GameBehaviourBase
     [SerializeField] private RowColorPattern _colorPattern;
 
     [Tooltip("Second priority (after Color Pattern above) — fix every carrier in this row to one " +
-             "compatible color instead of each drawing independently. Override Color Index indexes " +
-             "Block Colors directly (the full list, unaffected by Scene Scope's Color Range).")]
+             "compatible color instead of each drawing independently. Override Color Indices indexes " +
+             "Block Colors directly (the full list, unaffected by Scene Scope's Color Range) — list " +
+             "more than one entry to pick randomly among them.")]
     [SerializeField] private bool _overrideColor;
-    [SerializeField] private int _overrideColorIndex;
+    [SerializeField] private int[] _overrideColorIndices;
 
     [Tooltip("Caps how many consecutive carriers in this row can land on the same compatible color " +
              "when randomly drawn. 0 leaves it uncapped. Ignored when Color Pattern or Override Color " +
@@ -179,18 +180,19 @@ public sealed class EmptyCarrierRowExit : GameBehaviourBase
 
         if (_overrideColor)
         {
-            var blockColors = _sceneScope.BlockColors;
-            if (_overrideColorIndex < 0 || _overrideColorIndex >= blockColors.Count)
+            var colorType = SceneScope.ResolveOverrideColor(_overrideColorIndices, _sceneScope.BlockColors,
+                $"{name}'s Override Color Indices", this);
+
+            if (colorType == null)
             {
-                Debug.LogWarning($"<b>{nameof(EmptyCarrierRowExit)}</b>: {name}'s Override Color Index " +
-                                 $"{_overrideColorIndex} is out of range for Block Colors " +
-                                 $"({blockColors.Count} entries). Leaving this row's carriers as drawn.", this);
+                Debug.LogWarning($"<b>{nameof(EmptyCarrierRowExit)}</b>: {name}'s Override Color Indices has " +
+                                 $"no valid entry in Block Colors ({_sceneScope.BlockColors.Count} entries). " +
+                                 "Leaving this row's carriers as drawn.", this);
                 return;
             }
 
-            var colorType = blockColors[_overrideColorIndex];
             foreach (var carrier in _carriers)
-                if (carrier != null && carrier.IsSink()) carrier.SetCompatibleColor(colorType);
+                if (carrier != null && carrier.IsSink()) carrier.SetCompatibleColor(colorType.Value);
 
             return;
         }
