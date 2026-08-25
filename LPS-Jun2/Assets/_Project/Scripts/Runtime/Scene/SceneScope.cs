@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Cysharp.Threading.Tasks;
 using Dreamteck.Splines;
+using LitMotion;
+using LitMotion.Extensions;
 using MessagePipe;
 using Scellecs.Morpeh;
 using UnityEngine;
@@ -137,6 +140,30 @@ public sealed class SceneScope : LifetimeScope
              "belt before this elapses since the last play are silent instead of retriggering the clip.")]
     [SerializeField] private float _blockConveyorJumpAudioMinInterval = .1f;
 
+    [Header("Camera Pan")]
+    [Tooltip("Transform this pans along X/Z. Manually assigned — typically a Cinemachine vcam or rig " +
+             "transform, not necessarily the main gameplay Camera, since Cinemachine may otherwise " +
+             "fight a direct lerp on the real Camera's transform.")]
+    [SerializeField] private Transform _movableCamera;
+
+    [Tooltip("When on, Movable Camera starts offset on the X/Z plane at Camera Start Position XZ " +
+             "instead of its authored position, and only reaches its authored position once " +
+             "LerpCameraToOriginalPosition() runs (ShortcutManager's C key). When off, it stays at " +
+             "its authored position and C does nothing.")]
+    [SerializeField] private bool _useCameraStartPositionLerp;
+
+    [Tooltip("World-space X/Z Movable Camera starts at when Use Camera Start Position Lerp is on " +
+             "(x = X, y = Z). Y (height) is kept from its authored position.")]
+    [SerializeField] private Vector2 _cameraStartPositionXZ;
+
+    [Tooltip("How long LerpCameraToOriginalPosition() takes to pan Movable Camera from Camera Start " +
+             "Position XZ back to its authored position. Eased in/out (slow-fast-slow).")]
+    [Min(0.01f)]
+    [SerializeField] private float _cameraPanDuration = 1f;
+
+    private readonly CompositeMotionHandle _cameraPanMotions = new();
+    private Vector3 _cameraOriginalPosition;
+
     [Header("Systems")]
     [Tooltip("Only these SystemBase types are constructed. Everything else in the project is ignored.")]
     [SerializeField]
@@ -188,6 +215,28 @@ public sealed class SceneScope : LifetimeScope
     {
         foreach (var rowExit in _emptyCarrierRowExits)
             if (rowExit != null) rowExit.LerpToOriginalPosition();
+    }
+
+    /// <summary>Pans Movable Camera from wherever it currently sits back to its authored position.
+    /// Safe no-op when Movable Camera isn't assigned or Use Camera Start Position Lerp is off. See
+    /// ShortcutManager's C key.</summary>
+    public void LerpCameraToOriginalPosition()
+    {
+        if (_movableCamera == null) return;
+        if (!_useCameraStartPositionLerp) return;
+
+        RunCameraPan().Forget();
+    }
+
+    private async UniTaskVoid RunCameraPan()
+    {
+        _cameraPanMotions.Cancel();
+
+        await LMotion.Create(_movableCamera.position, _cameraOriginalPosition, _cameraPanDuration)
+            .WithEase(Ease.InOutSine)
+            .BindToPosition(_movableCamera)
+            .AddTo(_cameraPanMotions)
+            .ToUniTask(this.GetCancellationTokenOnDestroy());
     }
 
     /// <summary>
@@ -365,6 +414,17 @@ public sealed class SceneScope : LifetimeScope
         base.Awake();
 
         ApplyRandomBlockColors();
+        CaptureCameraOriginalPosition();
+    }
+
+    private void CaptureCameraOriginalPosition()
+    {
+        if (_movableCamera == null) return;
+
+        _cameraOriginalPosition = _movableCamera.position;
+
+        if (_useCameraStartPositionLerp)
+            _movableCamera.position = new Vector3(_cameraStartPositionXZ.x, _cameraOriginalPosition.y, _cameraStartPositionXZ.y);
     }
 
     protected override void OnDestroy()

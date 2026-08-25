@@ -14,6 +14,7 @@ using UnityEngine;
 /// R - reload the active scene
 /// O - lerp every Empty Carrier Row with Use Start Position Lerp on back to its authored position
 /// P - toggle the scene's Pointer GameObject on/off
+/// C - lerp Scene Scope's Movable Camera back to its authored position (if Use Camera Start Position Lerp is on)
 /// </summary>
 public sealed class ShortcutManager : MonoBehaviour
 {
@@ -32,6 +33,7 @@ public sealed class ShortcutManager : MonoBehaviour
         if (InputH.GetKeyDown(KeyCode.R)) ReloadScene();
         if (InputH.GetKeyDown(KeyCode.O)) LerpEmptyCarrierRows();
         if (InputH.GetKeyDown(KeyCode.P)) TogglePointer();
+        if (InputH.GetKeyDown(KeyCode.C)) LerpCamera();
     }
 
     private void ToggleGlobalTrigger()
@@ -125,6 +127,18 @@ public sealed class ShortcutManager : MonoBehaviour
 
         _sceneScope.TogglePointer();
         Debug.Log($"<b>{nameof(ShortcutManager)}</b>: toggled Pointer.", this);
+    }
+
+    private void LerpCamera()
+    {
+        if (_sceneScope == null)
+        {
+            Debug.LogWarning($"<b>{nameof(ShortcutManager)}</b>: no Scene Scope assigned, can't lerp the camera.", this);
+            return;
+        }
+
+        _sceneScope.LerpCameraToOriginalPosition();
+        Debug.Log($"<b>{nameof(ShortcutManager)}</b>: triggered camera pan.", this);
     }
 }
 #endif
