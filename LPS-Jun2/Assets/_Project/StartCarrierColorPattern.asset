@@ -17,3 +17,7 @@ MonoBehaviour:
       <Base>k__BackingField: 12
       <Shade>k__BackingField: 1
     ConsecutiveGroupCount: 4
+  - Color:
+      <Base>k__BackingField: 3
+      <Shade>k__BackingField: 0
+    ConsecutiveGroupCount: 4
