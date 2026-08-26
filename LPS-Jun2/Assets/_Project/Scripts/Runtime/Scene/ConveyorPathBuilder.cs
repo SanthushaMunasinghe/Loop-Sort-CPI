@@ -32,6 +32,19 @@ using UnityEditor.SceneManagement;
 /// pulls BSpline's curve tighter toward the waypoints the higher it goes — but for BSpline this is a
 /// tightening, not an exact fit. 0 inserts none, so each waypoint becomes exactly one spline point.</para>
 ///
+/// <para><b>Up / banking.</b> Each spline point's normal (which decides which way the belt's
+/// cross-section faces — see <see cref="Dreamteck.Splines.SplineSample.right"/>) is <i>not</i> a flat
+/// world-up like <see cref="ConveyorRectangleBuilder"/> can get away with. A path that climbs, banks,
+/// or loops (roller-coaster style) will have stretches where the direction of travel is itself
+/// pointing straight up or down, and a fixed world-up normal there is parallel to the direction of
+/// travel — the exact degenerate case that makes the belt's width flip and twist unpredictably.
+/// Instead, <see cref="BuildPathPoints"/> propagates a rotation-minimizing frame around the whole
+/// closed loop, seeded from the <i>first</i> waypoint's own local up, so the belt's up only ever
+/// turns gradually from one waypoint to the next — including flipping upside-down relative to world
+/// space through the top of a loop, which is correct there, just never abrupt. Each waypoint's own
+/// <c>transform.up</c> is then blended in as a banking hint by <see cref="_bankBlend"/>, so rotating a
+/// waypoint still tilts the belt at that point without reintroducing sudden snaps.</para>
+///
 /// <para><b>Editor only.</b> Every method lives inside <c>#if UNITY_EDITOR</c> and there is no
 /// Awake/Start/Update, so nothing here can execute in a player build. The serialized fields
 /// deliberately sit outside the guard so the component's serialized layout is identical in the editor
@@ -73,6 +86,17 @@ public sealed class ConveyorPathBuilder : MonoBehaviour
              "for Linear it only adds points, it does not change the shape, which is already exact.")]
     [Min(0)]
     [SerializeField] private int _subdivisionsPerSegment = 0;
+
+    [Header("Up / Banking")]
+    [Tooltip("How strongly each waypoint's own local Y (its transform's up arrow) pulls the belt's " +
+             "cross-section toward that orientation there, versus a smoothly propagated up carried " +
+             "over from the previous waypoint. 0 ignores waypoint rotation entirely and only " +
+             "propagates from the first waypoint's up - safest, but rotating waypoints does " +
+             "nothing. 1 snaps fully to each waypoint's own up - full control, but a waypoint " +
+             "rotated very differently from its neighbours can twist the belt abruptly. 0.5 blends " +
+             "the two, which is a good default for hand-placed waypoints.")]
+    [Range(0f, 1f)]
+    [SerializeField] private float _bankBlend = 0.5f;
 
 #pragma warning restore CS0169, CS0414, CS0649
 
@@ -162,20 +186,38 @@ public sealed class ConveyorPathBuilder : MonoBehaviour
     {
         var childCount = _pathParent.childCount;
         var world = new Vector3[childCount];
+        var hintUps = new Vector3[childCount];
         for (var i = 0; i < childCount; i++)
-            world[i] = _pathParent.GetChild(i).position;
+        {
+            var child = _pathParent.GetChild(i);
+            world[i] = child.position;
+            hintUps[i] = child.up;
+        }
+
+        var tangents = ComputeTangents(world);
+        var waypointUps = ComputeWaypointUps(world, tangents, hintUps);
 
         var result = new List<Vector3>(childCount * (_subdivisionsPerSegment + 1));
+        var resultUps = new List<Vector3>(childCount * (_subdivisionsPerSegment + 1));
         for (var i = 0; i < childCount; i++)
         {
             var start = world[i];
             var end = world[(i + 1) % childCount];
+            var startUp = waypointUps[i];
+            var endUp = waypointUps[(i + 1) % childCount];
 
             // Each waypoint is added once, by the segment that leads into it, so it is never
-            // duplicated between neighbouring segments.
+            // duplicated between neighbouring segments. Its up is carried along the same way
+            // Dreamteck itself blends point normals (SplinePoint.Lerp), so a subdivided segment looks
+            // identical to the un-subdivided one, just with more points on it.
             result.Add(start);
+            resultUps.Add(startUp);
             for (var j = 1; j <= _subdivisionsPerSegment; j++)
-                result.Add(Vector3.Lerp(start, end, (float)j / (_subdivisionsPerSegment + 1)));
+            {
+                var t = (float)j / (_subdivisionsPerSegment + 1);
+                result.Add(Vector3.Lerp(start, end, t));
+                resultUps.Add(Vector3.Slerp(startUp, endUp, t));
+            }
         }
 
         var points = new SplinePoint[result.Count];
@@ -183,10 +225,104 @@ public sealed class ConveyorPathBuilder : MonoBehaviour
         {
             // Already world space, matching SetPoints' default space - the computer's own Space
             // setting is read but never overwritten.
-            points[i] = new SplinePoint(result[i]);
+            points[i] = new SplinePoint(result[i]) { normal = resultUps[i] };
         }
 
         return points;
+    }
+
+    // ── Up / banking ─────────────────────────────────────────────────────────────────────────
+
+    // Central-difference direction of travel at each waypoint, wrapping around the closed loop.
+    // Only used to keep the "up" propagation below perpendicular to the path - never fed back into
+    // the spline's own tangent handles, which SplinePoint(Vector3) already leaves at zero length
+    // (fine: Linear/CatmullRom/BSpline all shape themselves from point positions, not handles).
+    private static Vector3[] ComputeTangents(Vector3[] positions)
+    {
+        var n = positions.Length;
+        var tangents = new Vector3[n];
+        for (var i = 0; i < n; i++)
+        {
+            var prev = positions[(i - 1 + n) % n];
+            var next = positions[(i + 1) % n];
+            var t = next - prev;
+            tangents[i] = t.sqrMagnitude > 1e-10f ? t.normalized : Vector3.forward;
+        }
+
+        return tangents;
+    }
+
+    private static Vector3 ProjectPerpendicular(Vector3 v, Vector3 tangent) =>
+        v - Vector3.Dot(v, tangent) * tangent;
+
+    // A waypoint's own up, flattened onto the plane perpendicular to its tangent. Falls back to
+    // whichever world axis is least parallel to the tangent when the waypoint's up happens to point
+    // along the direction of travel there (the exact case that used to degenerate the belt's width).
+    private static Vector3 ResolveUpHint(Vector3 hintUp, Vector3 tangent)
+    {
+        var projected = ProjectPerpendicular(hintUp, tangent);
+        if (projected.sqrMagnitude > 0.0001f) return projected.normalized;
+
+        var fallback = Mathf.Abs(Vector3.Dot(tangent, Vector3.up)) < 0.99f ? Vector3.up : Vector3.forward;
+        return ProjectPerpendicular(fallback, tangent).normalized;
+    }
+
+    // Double reflection method (Wang, Jüttler, Zheng, Liu 2008): transports an "up" vector known to
+    // be perpendicular to t0 at p0 into one perpendicular to t1 at p1, rotating by exactly as much as
+    // the frame itself turned - no more. Unlike recomputing "up" independently at each point (e.g.
+    // Cross(worldUp, tangent)), this never degenerates when the tangent points straight up/down, and
+    // never flips 180° between neighbours, which is what a roller-coaster-style vertical loop needs.
+    private static Vector3 TransportUp(Vector3 p0, Vector3 t0, Vector3 r0, Vector3 p1, Vector3 t1)
+    {
+        var v1 = p1 - p0;
+        var c1 = Vector3.Dot(v1, v1);
+        if (c1 < 1e-10f) return r0;
+
+        var rL = r0 - (2f / c1) * Vector3.Dot(v1, r0) * v1;
+        var tL = t0 - (2f / c1) * Vector3.Dot(v1, t0) * v1;
+
+        var v2 = t1 - tL;
+        var c2 = Vector3.Dot(v2, v2);
+        if (c2 < 1e-10f) return rL.normalized;
+
+        var r1 = rL - (2f / c2) * Vector3.Dot(v2, rL) * v2;
+        return r1.normalized;
+    }
+
+    // One stable "up" per waypoint: propagated all the way around the closed loop from the first
+    // waypoint's own up (the seed - "initial point up as initial up"), corrected so the loop closes
+    // without a seam, then blended toward each waypoint's own local up by Bank Blend. See the class
+    // summary's Up / banking section for why this is needed instead of a fixed world-up normal.
+    private Vector3[] ComputeWaypointUps(Vector3[] positions, Vector3[] tangents, Vector3[] hintUps)
+    {
+        var n = positions.Length;
+        var seed = ResolveUpHint(hintUps[0], tangents[0]);
+
+        var propagated = new Vector3[n];
+        propagated[0] = seed;
+        for (var i = 1; i < n; i++)
+            propagated[i] = TransportUp(positions[i - 1], tangents[i - 1], propagated[i - 1], positions[i], tangents[i]);
+
+        // Propagating one more step (last waypoint back to the first) should land back on the seed;
+        // it generally won't exactly, so the mismatch is spread evenly across every waypoint instead
+        // of dumped entirely into one seam at the point the loop closes.
+        var wrapped = TransportUp(positions[n - 1], tangents[n - 1], propagated[n - 1], positions[0], tangents[0]);
+        var mismatch = Vector3.SignedAngle(seed, wrapped, tangents[0]);
+        for (var i = 0; i < n; i++)
+        {
+            var correctionAngle = -mismatch * i / n;
+            propagated[i] = Quaternion.AngleAxis(correctionAngle, tangents[i]) * propagated[i];
+        }
+
+        var result = new Vector3[n];
+        for (var i = 0; i < n; i++)
+        {
+            var hint = ResolveUpHint(hintUps[i], tangents[i]);
+            var blended = Vector3.Slerp(propagated[i], hint, _bankBlend);
+            result[i] = ProjectPerpendicular(blended, tangents[i]).normalized;
+        }
+
+        return result;
     }
 
     // ── Validation and plumbing ─────────────────────────────────────────────────────────────
