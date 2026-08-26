@@ -149,6 +149,12 @@ public sealed class ConveyorPathBuilder : MonoBehaviour
 
         Undo.RecordObjects(new Object[] { _splineComputer, this }, BuildUndoName);
 
+        // SetPoints below rebuilds the belt and collider meshes immediately, so the index format has
+        // to be right before it runs - waiting for UpdateMesh at the end would mean overflowing
+        // 16-bit indices (and writing a broken mesh) once on every build of a long path.
+        _meshUpdater.ResolveReferences();
+        _meshUpdater.ApplyMeshIndexFormat();
+
         // Set before SetPoints/RebuildImmediate so the rebuild evaluates using the chosen type from
         // the start.
         _splineComputer.type = ResolveSplineType();
@@ -220,12 +226,20 @@ public sealed class ConveyorPathBuilder : MonoBehaviour
             }
         }
 
+        // Carry the conveyor's existing thickness onto every new point rather than letting
+        // SplinePoint(Vector3) default each one to 1. A conveyor's thickness is uniform, so point 0's
+        // size is the whole story. Without this the spline itself is built thin and only the stretch
+        // ConveyorMeshUpdater's captured baseline happens to cover gets corrected afterwards.
+        var carriedSize = _splineComputer != null && _splineComputer.pointCount > 0
+            ? _splineComputer.GetPointSize(0)
+            : 1f;
+
         var points = new SplinePoint[result.Count];
         for (var i = 0; i < result.Count; i++)
         {
             // Already world space, matching SetPoints' default space - the computer's own Space
             // setting is read but never overwritten.
-            points[i] = new SplinePoint(result[i]) { normal = resultUps[i] };
+            points[i] = new SplinePoint(result[i]) { normal = resultUps[i], size = carriedSize };
         }
 
         return points;

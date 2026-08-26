@@ -102,6 +102,14 @@ public sealed class ConveyorMeshUpdater : MonoBehaviour
     [Min(0f)]
     [SerializeField] private float _meshDensity;
 
+    [Tooltip("Allow the belt and collider meshes to use 32-bit indices. Unity's default 16-bit " +
+             "index format caps a mesh at 65535 vertices; a long or dense conveyor blows straight " +
+             "past that, and Dreamteck then logs \"exceeds the maximum vertex count\" and writes a " +
+             "broken mesh. Leave this on unless you are targeting hardware without 32-bit index " +
+             "support - the only cost is a slightly larger index buffer. Turn it off and lower Mesh " +
+             "Density instead if you would rather keep the mesh small.")]
+    [SerializeField] private bool _use32BitMeshIndices = true;
+
     [Header("Width")]
     [Tooltip("Scale of the belt's walkway (the collider's Surface/Ceil and the belt's own single " +
              "profile), relative to however it was authored (captured the first time Update Mesh " +
@@ -250,6 +258,10 @@ public sealed class ConveyorMeshUpdater : MonoBehaviour
         // into. Calling it here reproduces that without needing the user to click anything.
         EditorAwakeAll();
 
+        // Must happen before either mesh is rebuilt below: the index format decides how many vertices
+        // a mesh can hold at all, and a rebuild that overflows 16-bit indices writes a broken mesh.
+        ApplyMeshIndexFormat();
+
         // Must happen before the spline rebuild below, so the forced rebuild bakes the new point
         // sizes into the spline's evaluate cache before the belt/collider meshes sample it.
         CapturePointSizeBaseIfNeeded();
@@ -304,6 +316,31 @@ public sealed class ConveyorMeshUpdater : MonoBehaviour
         _splineComputer.EditorAwake();
         _splineMesh.EditorAwake();
         if (_colliderMesh != null) _colliderMesh.EditorAwake();
+    }
+
+    // ── Mesh index format ────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Puts the belt and collider meshes on the index format chosen by Use 32 Bit Mesh Indices.
+    ///
+    /// <para>Dreamteck's MeshGenerator defaults to 16-bit indices, which caps a mesh at 65535
+    /// vertices and only reports the overflow after the fact (MeshGenerator.WriteMesh) — by which
+    /// point it has already written a broken mesh. A conveyor long or dense enough to need this is
+    /// exactly the kind this component exists to author, so the format is raised here rather than
+    /// left to be found by hand in each Spline Mesh's Vertices foldout.</para>
+    ///
+    /// <para>Public because a reshaping tool must call it <i>before</i> it writes points: any
+    /// SplineComputer.SetPoints rebuilds the meshes immediately, so a builder that waits for
+    /// <see cref="UpdateMesh"/> to set the format has already overflowed once by then.</para>
+    /// </summary>
+    public void ApplyMeshIndexFormat()
+    {
+        var format = _use32BitMeshIndices
+            ? UnityEngine.Rendering.IndexFormat.UInt32
+            : UnityEngine.Rendering.IndexFormat.UInt16;
+
+        if (_splineMesh != null) _splineMesh.meshIndexFormat = format;
+        if (_colliderMesh != null) _colliderMesh.meshIndexFormat = format;
     }
 
     // ── Width ────────────────────────────────────────────────────────────────────────────────
@@ -388,11 +425,20 @@ public sealed class ConveyorMeshUpdater : MonoBehaviour
     // is the only one of the three that actually changes what that gizmo shows.
     private void ApplyThickness()
     {
-        if (_splineComputer == null) return;
+        if (_splineComputer == null || _pointSizeBase.Count == 0) return;
 
-        var count = Mathf.Min(_splineComputer.pointCount, _pointSizeBase.Count);
-        for (var i = 0; i < count; i++)
-            _splineComputer.SetPointSize(i, _pointSizeBase[i] * _thicknessModifier);
+        // Every point is covered, not just the ones the baseline happens to have an entry for. A
+        // reshaping tool (ConveyorPathBuilder, ConveyorRectangleBuilder) replaces the spline's points
+        // wholesale and can easily leave more of them than were here when the baseline was captured;
+        // those extra points used to fall outside the loop entirely and keep SplinePoint's default
+        // size of 1, which is what made a long path visibly narrow partway along and then refuse to
+        // respond to Thickness Modifier from that point on. A conveyor's thickness is uniform, so the
+        // last captured value is the right one to carry across the remainder.
+        for (var i = 0; i < _splineComputer.pointCount; i++)
+        {
+            var baseSize = _pointSizeBase[Mathf.Min(i, _pointSizeBase.Count - 1)];
+            _splineComputer.SetPointSize(i, baseSize * _thicknessModifier);
+        }
     }
 
     // ── Tile counts (the actual smoothness control) ──────────────────────────────────────────
