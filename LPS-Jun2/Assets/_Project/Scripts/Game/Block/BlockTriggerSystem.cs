@@ -5,18 +5,17 @@ using UnityEngine.Pool;
 using VContainer;
 
 /// <summary>
-/// Binds every trigger that feeds blocks into carriers to the transfer system: the pre-generated
-/// per-carrier triggers, and the one hand-placed GlobalTrigger.
+/// Binds every trigger that feeds blocks into carriers to the transfer system: the per-carrier
+/// triggers, and the one hand-placed GlobalTrigger.
 ///
 /// The trigger GameObjects themselves already live in the scene — the per-carrier ones produced by
-/// LevelSandboxGenerator, GlobalTrigger placed by hand — so this creates nothing, it only wires each
-/// BlockTrigger to whatever should handle the blocks that enter it.
+/// LevelSandboxGenerator or placed by hand, GlobalTrigger placed by hand — so this creates nothing,
+/// it only wires each BlockTrigger to whatever should handle the blocks that enter it.
 /// </summary>
 public sealed class BlockTriggerSystem : SystemBase, IFixedSystem
 {
     [Inject] private BlockTransferSystem _blockTransferSystem;
     [Inject] private RemoteConfigModule _remoteConfigModule;
-    [Inject] private LevelSandbox _levelSandbox;
     [Inject] private SceneScope _sceneScope;
 
     [Inject] private IPublisher<CarrierTriggerCompleteMessage> _carrierTriggerCompletePub;
@@ -48,17 +47,25 @@ public sealed class BlockTriggerSystem : SystemBase, IFixedSystem
         BindGlobalTrigger();
     }
 
+    /// <summary>
+    /// Every CarrierBlockTrigger in the scene, wherever it sits — not just the ones the generator put
+    /// under LevelSandbox's Triggers Root, so a trigger placed or re-parented by hand (which is how a
+    /// Default carrier gets fed) is bound the same as a generated one. Triggers belonging to carriers
+    /// this scene isn't running are bound too and cost nothing: HandleCarrierTrigger drops them on its
+    /// own IsRegisteredCarrier check.
+    /// </summary>
     private void BindCarrierTriggers()
     {
-        var root = _levelSandbox != null ? _levelSandbox.TriggersRoot : null;
-        if (root == null)
+        var triggers = Object.FindObjectsByType<CarrierBlockTrigger>(FindObjectsInactive.Include,
+            FindObjectsSortMode.None);
+        if (triggers.Length == 0)
         {
-            Debug.LogWarning($"[{nameof(BlockTriggerSystem)}] No triggers root — conveyor to carrier " +
-                             "pickup will not work. Re-generate the level.");
+            Debug.LogWarning($"[{nameof(BlockTriggerSystem)}] No CarrierBlockTrigger in the scene — " +
+                             "conveyor to carrier pickup will not work. Re-generate the level, or place " +
+                             "the triggers by hand.");
             return;
         }
 
-        var triggers = root.GetComponentsInChildren<CarrierBlockTrigger>(true);
         foreach (var carrierTrigger in triggers)
         {
             var carrier = carrierTrigger.Carrier;
@@ -89,6 +96,10 @@ public sealed class BlockTriggerSystem : SystemBase, IFixedSystem
     /// </summary>
     private void BindGlobalTrigger()
     {
+        // Default carriers each take blocks in through their own trigger, so the global one has
+        // nothing to do — and FindCompatibleEmptyCarrier would return null on every block anyway.
+        if (_sceneScope.UseDefaultCarriers) return;
+
         var globalTrigger = _sceneScope.GlobalTrigger;
         if (globalTrigger == null)
         {

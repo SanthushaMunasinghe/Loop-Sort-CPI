@@ -251,9 +251,10 @@ public sealed class LevelSandboxEditor : Editor
     }
 
     /// <summary>
-    /// Reshapes the generated carriers to match the Mode each one is set to: Start is filled up,
-    /// Empty is cleared out, Default is left alone. Only block counts change — the colours are the
-    /// scene view's, and SceneScope rerolls them every time you press Play.
+    /// Reshapes the generated carriers to match the Mode each one is set to: Start and Default are
+    /// filled up (to Start Group Count / Default Group Count, both a minimum of 4 groups), Empty is
+    /// cleared out. Only block counts change — the colours are the scene view's, and SceneScope
+    /// rerolls them every time you press Play.
     /// </summary>
     private void ApplyCarrierModes()
     {
@@ -292,9 +293,15 @@ public sealed class LevelSandboxEditor : Editor
         var groupBlockCount = LevelGeometry.GetGroupBlockCount(assets.CarrierConfig, physicsType, carrierBlockArgs);
         var configSize = assets.CarrierConfig.Sizes[physicsType];
 
-        var filled = 0;
+        var startFilled = 0;
         var emptied = 0;
-        var untouched = 0;
+        var defaultFilled = 0;
+
+        // Reported below: a carrier refilled to fewer groups than it was holding looks like it was
+        // wiped, and the group count is the only thing that decides that. Worth stating outright
+        // rather than leaving to be counted in the hierarchy.
+        var startGroups = 0;
+        var defaultGroups = 0;
 
         foreach (var carrier in carriersRoot.GetComponentsInChildren<Carrier>(true))
         {
@@ -302,8 +309,9 @@ public sealed class LevelSandboxEditor : Editor
             {
                 case CarrierMode.Start:
                     LevelSandboxGenerator.FillCarrier(carrier, assets.Blocks, assets.Colors, palette,
-                        blockSize, groupBlockCount, configSize);
-                    filled++;
+                        blockSize, groupBlockCount, configSize, carrier.StartGroupCount);
+                    startFilled++;
+                    startGroups += Mathf.Max(4, carrier.StartGroupCount);
                     break;
 
                 case CarrierMode.Empty:
@@ -312,7 +320,12 @@ public sealed class LevelSandboxEditor : Editor
                     break;
 
                 default:
-                    untouched++;
+                    // Fills every Group Blocks slot the body has, so a Default carrier comes out full
+                    // without a count to set by hand. Same number GetMaxBlockCount uses at run time.
+                    LevelSandboxGenerator.FillCarrier(carrier, assets.Blocks, assets.Colors, palette,
+                        blockSize, groupBlockCount, configSize, carrier.GetDefaultFillGroupCount());
+                    defaultFilled++;
+                    defaultGroups += carrier.GetDefaultFillGroupCount();
                     break;
             }
 
@@ -326,8 +339,10 @@ public sealed class LevelSandboxEditor : Editor
 
         EditorSceneManager.MarkSceneDirty(Sandbox.gameObject.scene);
 
-        Debug.Log($"<b>Level Sandbox</b>: applied carrier modes — {filled} filled, {emptied} emptied, " +
-                  $"{untouched} left as generated.", Sandbox);
+        Debug.Log($"<b>Level Sandbox</b>: applied carrier modes — {startFilled} start filled " +
+                  $"({startGroups} groups), {defaultFilled} default filled ({defaultGroups} groups), " +
+                  $"{emptied} emptied. Groups come from each carrier's Start Group Count / Default " +
+                  "Group Count; Ctrl+Z puts the level back if that isn't what you wanted.", Sandbox);
     }
 
     /// <summary>

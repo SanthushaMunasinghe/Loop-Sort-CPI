@@ -75,8 +75,12 @@ public sealed class BlockTransferSystem : SystemBase
     private void AddCarrierTriggers()
     {
         var triggerGroup = _splineComputer.AddTriggerGroup();
-        foreach (var carrier in _sceneScope.EmptyCarriers)
+        foreach (var carrier in _sceneScope.AllCarriers)
         {
+            // Same set as before for the Start/Empty pair (only Empty takes blocks in), and the right
+            // one for a scene running on Default carriers, which take blocks in as well as hand out.
+            if (!carrier.CanTakeInBlocks()) continue;
+
             var worldPosition = carrier.TransferProjectPoint.position;
             var project = _splineComputer.Project(worldPosition);
             var firstTrigger = triggerGroup.AddTrigger(project.percent, SplineTrigger.Type.Forward);

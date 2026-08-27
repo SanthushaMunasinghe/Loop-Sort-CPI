@@ -71,8 +71,13 @@ public sealed class BlockNextTransferSystem : SystemBase
     {
         await UniTask.NextFrame(SceneLoadToken);
         _isBlockCreateComplete = true;
-        foreach (var carrier in _sceneScope.StartCarriers)
+        // Every carrier that hands blocks out, so a scene running on Default carriers gets its
+        // next-transfer highlight seeded too — StartCarriers is empty there.
+        foreach (var carrier in _sceneScope.AllCarriers)
+        {
+            if (!carrier.CanTakeOutBlocks()) continue;
             RefreshNextTransferBlocks(carrier);
+        }
     }
 
     private void RefreshNextTransferBlocks(Carrier carrier)

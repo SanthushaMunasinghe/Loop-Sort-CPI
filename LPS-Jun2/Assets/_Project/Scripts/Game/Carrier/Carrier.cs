@@ -37,9 +37,10 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
     // SetType still wins for carriers spawned from the sheet.
     [field: SerializeField] public CarrierSheet.CarrierType Type { get; private set; }
 
-    [field: Tooltip("What the Sandbox's Apply Carrier Modes button does to this carrier. Default " +
-                    "leaves it as generated, Start fills it up, Empty clears it out. Nothing at run " +
-                    "time reads this.")]
+    [field: Tooltip("What this carrier is. Apply Carrier Modes fills Start and Default up (to Start " +
+                    "Group Count / Default Group Count below) and clears Empty out. Run time reads " +
+                    "it too: Start only hands blocks out, Empty only takes them in, Default does " +
+                    "both. Which of them actually run is Scene Scope's carrier lists.")]
     [field: SerializeField] public CarrierMode Mode { get; private set; }
 
     [field: Tooltip("Empty mode only: the color this sink accepts when Only Compatible Color is on. " +
@@ -56,33 +57,44 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
                     "level's own sizing exactly, so leaving it at 4 changes nothing. Apply Carrier " +
                     "Modes clones GroupBlocks slot 1 to permanently add visual capacity when this " +
                     "is higher.")]
+    [field: Min(4)]
     [field: SerializeField] public int StartGroupCount { get; private set; } = 4;
 
-    [field: Tooltip("Start mode only: paints this carrier's groups from Color Pattern below, starting " +
-                    "at the last group (the front, the first one this carrier actually dispenses) and " +
-                    "working backward. Groups the pattern's blocks don't reach — or every group, if " +
-                    "the asset is missing or empty — fall back to Override Start Color / Max " +
-                    "Consecutive Same Color Groups below instead of looping the pattern back to its " +
-                    "start.")]
+    [field: Tooltip("Start and Default modes: paints this carrier's groups from Color Pattern below, " +
+                    "starting at the last group (the front, the first one this carrier actually " +
+                    "dispenses) and working backward. Groups the pattern's blocks don't reach — or " +
+                    "every group, if the asset is missing or empty — fall back to Override Start " +
+                    "Color / Max Consecutive Same Color Groups below instead of looping the pattern " +
+                    "back to its start.")]
     [field: SerializeField] public bool UseColorPattern { get; private set; }
 
     [field: SerializeField] public StartCarrierColorPattern ColorPattern { get; private set; }
 
-    [field: Tooltip("Start mode only: restrict the per-group random draw to these colors instead of " +
-                    "Scene Scope's full palette — used for any groups Color Pattern above doesn't " +
-                    "reach (or every group, when Color Pattern is off). Still drawn per group (Max " +
-                    "Consecutive Same Color Groups below still applies), not forced to one color. " +
+    [field: Tooltip("Start and Default modes: restrict the per-group random draw to these colors " +
+                    "instead of Scene Scope's full palette — used for any groups Color Pattern above " +
+                    "doesn't reach (or every group, when Color Pattern is off). Still drawn per group " +
+                    "(Max Consecutive Same Color Groups below still applies), not forced to one color. " +
                     "Override Start Color Indices indexes Block Colors directly (the full list, " +
                     "unaffected by Scene Scope's Color Range).")]
     [field: SerializeField] public bool OverrideStartColor { get; private set; }
 
     [field: SerializeField] public int[] OverrideStartColorIndices { get; private set; }
 
-    [field: Tooltip("Start mode only: caps how many consecutive groups can land on the same color " +
-                    "when randomly drawn. 0 leaves it uncapped (Scene Scope's Prevent Single Color " +
-                    "Carriers is still the only guard). Applies against Override Start Color's " +
+    [field: Tooltip("Start and Default modes: caps how many consecutive groups can land on the same " +
+                    "color when randomly drawn. 0 leaves it uncapped (Scene Scope's Prevent Single " +
+                    "Color Carriers is still the only guard). Applies against Override Start Color's " +
                     "restricted palette too, when that's on.")]
     [field: SerializeField] public int MaxConsecutiveSameColorGroups { get; private set; }
+
+    [field: Header("Default Fill")]
+    [field: Tooltip("Default mode only: a FLOOR on the colour-group count Apply Carrier Modes fills " +
+                    "this carrier to, and on the capacity it holds at run time (blocks = groups x the " +
+                    "level's blocks-per-group). A Default carrier always fills every Group Blocks " +
+                    "slot its body actually has, so leave this at 4 and it comes out full whatever " +
+                    "size the body is. Raise it above that slot count to clone Group Blocks slot 1 " +
+                    "and permanently make the body longer.")]
+    [field: Min(4)]
+    [field: SerializeField] public int DefaultGroupCount { get; private set; } = 4;
 
     [field: Header("Empty Fill")]
     [field: Tooltip("Empty mode only: caps how many of the level's colour groups this sink needs " +
@@ -105,6 +117,21 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
     [field: Tooltip("Override only: seconds the top roof blend shape takes to close (replaces the " +
                     "default 0.6s). Lower to close — and leave — faster.")]
     [field: SerializeField] public float CloseSpeedOverride { get; private set; } = .6f;
+
+    /// <summary>
+    /// How many colour groups a Default carrier fills to, and holds. Its body is the authority: a
+    /// carrier whose Group Blocks list has 50 slots fills all 50, so "full" means full whatever size
+    /// the body was grown to and there is no count to keep in sync by hand. Default Group Count is
+    /// only a floor on top of that — raise it past the slot count and the fill grows the body to
+    /// match (see LevelSandboxGenerator.EnsureGroupBlockCapacity).
+    ///
+    /// Shared by the Sandbox's Apply Carrier Modes and GetMaxBlockCount so the fill and the capacity
+    /// can never disagree — a carrier filled past its capacity would read IsFull() forever.
+    /// </summary>
+    public int GetDefaultFillGroupCount()
+    {
+        return Mathf.Max(Mathf.Max(4, DefaultGroupCount), GroupBlocks != null ? GroupBlocks.Count : 0);
+    }
 
     [Inject] private CarrierConfig _config;
     [Inject] private AudioModule _audioModule;
@@ -362,7 +389,7 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
         var index = _blocks.Count;
         _blocks.Add(block);
         _idxByBlock[block] = index;
-        var coordinate = GetBlockCoordinate(index);
+        var localPosition = GetBlockLocalPosition(index);
 
         if (_blockPhysicsActives.Has(block)) _blockPhysicsActives.Remove(block);
 
@@ -399,7 +426,7 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
             _hapticModule.PlaySoft();
         }
 
-        var targetPosition = CoordinateToLocalPosition(coordinate);
+        var targetPosition = localPosition;
         var targetRotation = Quaternion.identity;
 
         var configSize = _carrierConfig.Sizes[_blockPhysicsConfig.Type];
@@ -638,6 +665,42 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
         return new Vector3(x, y, z);
     }
 
+    /// <summary>
+    /// Where the block at this index sits, in BlockParent's frame.
+    ///
+    /// Up to the level's own grid this is just the usual coordinate lookup. Past it, that lookup is
+    /// useless: CoordinateToLocalPosition runs each axis through Mathf.Lerp, which clamps, so every
+    /// index beyond the last grid layer collapses onto the same spot. A Default carrier with a raised
+    /// Default Group Count holds well past that grid, so every block it took back in would pile up in
+    /// one place. Those indices instead reuse the last grid group's internal layout and shift it by
+    /// the authored GroupBlocks spacing, one step per extra group — the same extrapolation
+    /// LevelSandboxGenerator.FillCarrier lays the authored blocks out with, so a block taken in lands
+    /// exactly where the one dispensed from that slot came from.
+    ///
+    /// GroupBlocks is read live rather than from the group-slide snapshot because only Start carriers
+    /// slide, and only Default carriers can reach this branch.
+    /// </summary>
+    public Vector3 GetBlockLocalPosition(int index)
+    {
+        var baseBlockCount = _conveyor.MaxBlockCount;
+        var groupBlockCount = _conveyor.GroupBlockCount;
+
+        if (index < baseBlockCount || groupBlockCount <= 0 || GroupBlocks.Count < 2 || BlockParent == null)
+            return CoordinateToLocalPosition(GetBlockCoordinate(index));
+
+        var baseGroupCount = baseBlockCount / groupBlockCount;
+        if (baseGroupCount <= 0) return CoordinateToLocalPosition(GetBlockCoordinate(index));
+
+        var anchorIndex = (baseGroupCount - 1) * groupBlockCount + index % groupBlockCount;
+        var anchorPosition = CoordinateToLocalPosition(GetBlockCoordinate(anchorIndex));
+
+        var groupDelta = BlockParent.InverseTransformPoint(GroupBlocks[1].transform.position)
+                         - BlockParent.InverseTransformPoint(GroupBlocks[0].transform.position);
+
+        var extraGroups = index / groupBlockCount - (baseGroupCount - 1);
+        return anchorPosition + groupDelta * extraGroups;
+    }
+
     public bool IsBlockExists(Vector3Int coordinate)
     {
         if (coordinate.x < 0 || coordinate.x >= _conveyor.BlockSize.x) return false;
@@ -711,6 +774,12 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
         var maxBlockCount = _conveyor.MaxBlockCount;
         if (Mode == CarrierMode.Empty && EmptyGroupLimit > 0 && _conveyor.GroupBlockCount > 0)
             maxBlockCount = Mathf.Min(maxBlockCount, EmptyGroupLimit * _conveyor.GroupBlockCount);
+
+        // Exactly what Apply Carrier Modes' Default fill puts in — not a Min() cap like Empty's above,
+        // because a raised Default Group Count has to be able to grow this past the level's own
+        // sizing, or the carrier would read IsFull() from frame one and never take a block in.
+        if (Mode == CarrierMode.Default && _conveyor.GroupBlockCount > 0)
+            maxBlockCount = GetDefaultFillGroupCount() * _conveyor.GroupBlockCount;
 
         return maxBlockCount;
     }
@@ -815,7 +884,10 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
         // A sink takes any colour, so being full is the only completion rule that means anything.
         if (Mode == CarrierMode.Empty) return IsFull();
 
-        return HasReachedCompleteCount() && AreAllBlocksSameColor();
+        // IsFull rather than HasReachedCompleteCount: the latter reads the conveyor's own max block
+        // count directly, which would ignore whatever Default Group Count set the capacity to above.
+        // The two are the same number whenever Default Group Count matches the level's group count.
+        return IsFull() && AreAllBlocksSameColor();
     }
 
     public bool CanTransferBlock(Block block)
@@ -907,18 +979,21 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
 }
 
 /// <summary>
-/// What the Sandbox's Apply Carrier Modes button should make of a carrier. Purely an instruction to
-/// that button — selecting, sorting and transfer treat every mode alike.
+/// What a carrier is. Drives both what the Sandbox's Apply Carrier Modes button makes of it and how
+/// it behaves at run time — see CanTakeInBlocks / IsSink / CanTakeOutBlocks / CanComplete above.
 /// </summary>
 public enum CarrierMode
 {
-    /// <summary>Left exactly as the level generated it.</summary>
+    /// <summary>Both source and sink: takes blocks in through its own trigger and hands them out on
+    /// click, completing when it fills with one colour. Filled to Default Group Count.</summary>
     Default = 0,
 
-    /// <summary>Filled to the carrier's full block count.</summary>
+    /// <summary>Source only: hands blocks out on click and never takes any in or completes. Filled to
+    /// Start Group Count.</summary>
     Start = 1,
 
-    /// <summary>Emptied of every block.</summary>
+    /// <summary>Sink only: takes blocks in and never gives them back, completing when full. Emptied of
+    /// every block.</summary>
     Empty = 2,
 }
 

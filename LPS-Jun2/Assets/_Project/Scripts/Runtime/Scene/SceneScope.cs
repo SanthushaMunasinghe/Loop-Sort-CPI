@@ -80,6 +80,16 @@ public sealed class SceneScope : LifetimeScope
              "Sandbox's Generate Empty Carrier Rows button.")]
     [SerializeField] private List<EmptyCarrierRow> _emptyCarrierRows = new();
 
+    [Tooltip("Runs this scene on Default carriers only: the list below both takes blocks in (through " +
+             "their own hand-placed triggers) and hands them out on click. Takes priority over " +
+             "everything else here — Start Carriers, Empty Carriers, Use Empty Carrier Rows and the " +
+             "Global Trigger are all ignored while this is on.")]
+    [SerializeField] private bool _useDefaultCarriers;
+
+    [Tooltip("Carriers this scene runs when Use Default Carriers is on. Populated by hand. Each one " +
+             "needs its own CarrierBlockTrigger somewhere in the scene to take blocks in.")]
+    [SerializeField] private List<Carrier> _defaultCarriers = new();
+
     // Self-registered by each EmptyCarrierRowExit in its own Awake — not hand-populated, so this
     // stays correct across however many rows the Level Sandbox generates without any manual wiring.
     private readonly List<EmptyCarrierRowExit> _emptyCarrierRowExits = new();
@@ -168,10 +178,28 @@ public sealed class SceneScope : LifetimeScope
     public float ConveyorSlotElementOffsetOverride => _conveyorSlotElementOffsetOverride;
     public IReadOnlyList<Carrier> StartCarriers => _startCarriers;
     public IReadOnlyList<Carrier> EmptyCarriers => _emptyCarriers;
-    public IEnumerable<Carrier> AllCarriers => _startCarriers.Concat(_emptyCarriers);
-    public bool IsRegisteredCarrier(Carrier carrier) => _startCarriers.Contains(carrier) || _emptyCarriers.Contains(carrier);
 
-    public bool UseEmptyCarrierRows => _useEmptyCarrierRows;
+    public bool UseDefaultCarriers => _useDefaultCarriers;
+    public IReadOnlyList<Carrier> DefaultCarriers => _defaultCarriers;
+
+    /// <summary>
+    /// Every carrier this scene actually runs. Use Default Carriers replaces the Start/Empty pair
+    /// outright rather than adding to it — a Default carrier is both source and sink, so a scene
+    /// running on them has no use for the other two lists, and leaving them in would let inert
+    /// carriers score in HasBetterCarrier and hold blocks back from the ones that can use them.
+    /// </summary>
+    public IEnumerable<Carrier> AllCarriers => _useDefaultCarriers
+        ? _defaultCarriers
+        : _startCarriers.Concat(_emptyCarriers);
+
+    /// <summary>The gate every trigger passes through — see BlockTransferSystem.HandleCarrierTrigger.</summary>
+    public bool IsRegisteredCarrier(Carrier carrier) => _useDefaultCarriers
+        ? _defaultCarriers.Contains(carrier)
+        : _startCarriers.Contains(carrier) || _emptyCarriers.Contains(carrier);
+
+    /// <summary>Rows are an Empty carrier feature, so Use Default Carriers switches them off with the
+    /// rest of that system regardless of what the row toggle itself is set to.</summary>
+    public bool UseEmptyCarrierRows => !_useDefaultCarriers && _useEmptyCarrierRows;
     public IReadOnlyList<EmptyCarrierRow> EmptyCarrierRows => _emptyCarrierRows;
 
     /// <summary>Called by each EmptyCarrierRowExit's own Awake so ShortcutManager can drive every row
@@ -196,6 +224,8 @@ public sealed class SceneScope : LifetimeScope
     /// CanTransferBlock) — the same acceptance rules HandleCarrierTrigger already applies
     /// per-carrier.
     ///
+    /// Always null when Use Default Carriers is on — see the first line of the body.
+    ///
     /// When UseEmptyCarrierRows is on, EmptyCarriers is not consulted at all — each row offers one
     /// carrier and one only, the first of that row still holding space (see GetActiveRowCarrier).
     /// Filling it is what hands the row on to the next carrier; nothing has to be disabled, moved or
@@ -208,6 +238,10 @@ public sealed class SceneScope : LifetimeScope
     /// </summary>
     public Carrier FindCompatibleEmptyCarrier(Block block)
     {
+        // Default carriers each take blocks in through their own trigger, so there is nothing for the
+        // one global trigger to route and no Empty carrier left running to route it to.
+        if (_useDefaultCarriers) return null;
+
         if (_useEmptyCarrierRows)
         {
             Carrier best = null;
@@ -407,7 +441,7 @@ public sealed class SceneScope : LifetimeScope
                              $"match Block Colors ({_blockColors.Count}). Empty carriers whose draw " +
                              "lands outside Truck Colors fall back to their own compatible color.", this);
 
-        foreach (var carrier in EmptyCarriers)
+        foreach (var carrier in AllCarriers)
         {
             if (carrier == null || !carrier.IsSink()) continue;
             ApplyRandomCompatibleColor(carrier, palette);

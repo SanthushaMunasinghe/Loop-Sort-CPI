@@ -372,10 +372,12 @@ public static class LevelSandboxGenerator
     }
 
     /// <summary>
-    /// Clears a carrier and refills it to carrier.StartGroupCount colour groups (default 4, which
-    /// matches the level's own sizing exactly — this only ever generates more than the level's
-    /// grid would when StartGroupCount is raised above 4). Walks the palette one entry per colour
-    /// group so neighbouring groups differ whenever there is more than one colour to draw on.
+    /// Clears a carrier and refills it to groupCount colour groups (default 4, which matches the
+    /// level's own sizing exactly — this only ever generates more than the level's grid would when
+    /// groupCount is raised above 4). Callers pass the field for the carrier's own mode:
+    /// StartGroupCount for a Start carrier, GetDefaultFillGroupCount() for a Default one. Walks the palette
+    /// one entry per colour group so neighbouring groups differ whenever there is more than one
+    /// colour to draw on.
     /// Colours here are only what the scene view shows — SceneScope rerolls them at run time.
     /// Returns how many blocks were placed.
     ///
@@ -388,7 +390,7 @@ public static class LevelSandboxGenerator
     /// spacing the extra GroupBlocks slots were placed at — see the loop below.
     /// </summary>
     public static int FillCarrier(Carrier carrier, Blocks blocks, Colors colors, IReadOnlyList<ColorType> palette,
-        Vector3Int blockSize, int groupBlockCount, CarrierConfig.SizeArgs configSize)
+        Vector3Int blockSize, int groupBlockCount, CarrierConfig.SizeArgs configSize, int groupCount)
     {
         if (carrier.BlockParent == null) return 0;
 
@@ -400,8 +402,8 @@ public static class LevelSandboxGenerator
             return 0;
         }
 
-        // Defensive clamp — [SerializeField] alone doesn't protect against a hand-edited scene value.
-        var startGroupCount = Mathf.Max(4, carrier.StartGroupCount);
+        // Defensive clamp — the inspector's Min(4) doesn't protect against a hand-edited scene value.
+        var startGroupCount = Mathf.Max(4, groupCount);
         EnsureGroupBlockCapacity(carrier, startGroupCount);
 
         ClearCarrierBlocks(carrier);
