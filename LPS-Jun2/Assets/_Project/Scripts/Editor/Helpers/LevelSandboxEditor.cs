@@ -320,8 +320,8 @@ public sealed class LevelSandboxEditor : Editor
                     break;
 
                 default:
-                    // Fills every Group Blocks slot the body has, so a Default carrier comes out full
-                    // without a count to set by hand. Same number GetMaxBlockCount uses at run time.
+                    // Same number GetMaxBlockCount uses at run time, and the same one FillCarrier
+                    // resizes Group Blocks to — body, fill and capacity all land on Default Group Count.
                     LevelSandboxGenerator.FillCarrier(carrier, assets.Blocks, assets.Colors, palette,
                         blockSize, groupBlockCount, configSize, carrier.GetDefaultFillGroupCount());
                     defaultFilled++;

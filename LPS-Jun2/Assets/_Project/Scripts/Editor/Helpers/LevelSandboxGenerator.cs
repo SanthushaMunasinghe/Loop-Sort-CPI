@@ -482,13 +482,20 @@ public static class LevelSandboxGenerator
     }
 
     /// <summary>
-    /// Grows carrier.GroupBlocks/GroupBlockFilters to at least desiredCount entries, permanently —
+    /// Resizes carrier.GroupBlocks/GroupBlockFilters to exactly desiredCount entries, permanently —
     /// these are real scene objects that also drive BlockCarrierMeshSystem's group-merge visuals at
-    /// run time, not just a sandbox preview. Clones whatever currently sits at index 1 (a generic,
-    /// unrotated middle slot) and inserts it right after index 0 each time, so index 0 (front cap)
-    /// never moves and the carrier's last authored slot (rear cap) stays last, just pushed further
-    /// back. A no-op — zero Undo/dirty churn — when the carrier already has enough slots, which is
-    /// always true at the default StartGroupCount 4.
+    /// run time, not just a sandbox preview. Growing clones whatever currently sits at index 1 (a
+    /// generic, unrotated middle slot) and inserts it right after index 0; shrinking deletes those
+    /// same cloned slots. Either way index 0 (front cap) never moves and the carrier's last authored
+    /// slot (rear cap) stays last, and every slot is re-spaced afterwards off index 0.
+    ///
+    /// Exact rather than at-least so the body always shows what the carrier actually holds: a slot
+    /// count left higher than the fill reads as a carrier that was wiped, and one left lower hides
+    /// groups that are really there. A no-op — zero Undo/dirty churn — when the count already matches.
+    ///
+    /// Only slots this button cloned are ever deleted; slots that come from the carrier prefab are
+    /// kept, since deleting a prefab instance's own child is not allowed without unpacking it. The
+    /// prefab ships 4 slots and both group counts floor at 4, so shrinking never has to touch one.
     /// </summary>
     private static void EnsureGroupBlockCapacity(Carrier carrier, int desiredCount)
     {
@@ -500,10 +507,13 @@ public static class LevelSandboxGenerator
             return;
         }
 
-        if (carrier.GroupBlocks.Count >= desiredCount) return;
+        if (carrier.GroupBlocks.Count == desiredCount) return;
 
         var groupBlocks = carrier.GroupBlocks;
         var groupBlockFilters = carrier.GroupBlockFilters;
+
+        // Captured before anything moves, so growing and shrinking both re-space at the carrier's
+        // own authored pitch rather than at whatever the current slot 0/1 gap happens to be after.
         var delta = groupBlocks[1].transform.position - groupBlocks[0].transform.position;
 
         Undo.RecordObject(carrier, "Apply Carrier Modes");
@@ -519,6 +529,23 @@ public static class LevelSandboxGenerator
             groupBlockFilters.Insert(1, clone.GetComponent<MeshFilter>());
         }
 
+        while (groupBlocks.Count > desiredCount)
+        {
+            var index = FindRemovableGroupBlockIndex(groupBlocks);
+            if (index < 0)
+            {
+                Debug.LogWarning($"<b>Level Sandbox</b>: '{carrier.name}' can't shrink to {desiredCount} " +
+                                 $"Group Blocks — the {groupBlocks.Count} it has all come from its prefab. " +
+                                 "Leaving the extra slots in place.", carrier);
+                break;
+            }
+
+            var go = groupBlocks[index].gameObject;
+            groupBlocks.RemoveAt(index);
+            if (index < groupBlockFilters.Count) groupBlockFilters.RemoveAt(index);
+            Undo.DestroyObjectImmediate(go);
+        }
+
         for (var i = 0; i < groupBlocks.Count; i++)
         {
             Undo.RecordObject(groupBlocks[i].transform, "Apply Carrier Modes");
@@ -526,6 +553,24 @@ public static class LevelSandboxGenerator
         }
 
         EditorUtility.SetDirty(carrier);
+    }
+
+    /// <summary>
+    /// The slot to drop when shrinking: the first one after index 0 that this button cloned rather
+    /// than inherited from the carrier prefab — the exact mirror of the insert-at-1 growth above, so
+    /// repeated grow/shrink presses land back on the prefab's own slots. Index 0 and the last entry
+    /// are the front and rear caps and are never candidates. -1 when nothing is removable.
+    /// </summary>
+    private static int FindRemovableGroupBlockIndex(List<MeshRenderer> groupBlocks)
+    {
+        for (var i = 1; i < groupBlocks.Count - 1; i++)
+        {
+            if (groupBlocks[i] == null) return i;
+            if (PrefabUtility.GetCorrespondingObjectFromSource(groupBlocks[i].gameObject) != null) continue;
+            return i;
+        }
+
+        return -1;
     }
 
     /// <summary>

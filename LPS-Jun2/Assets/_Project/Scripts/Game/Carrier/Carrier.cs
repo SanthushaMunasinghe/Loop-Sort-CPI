@@ -87,12 +87,11 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
     [field: SerializeField] public int MaxConsecutiveSameColorGroups { get; private set; }
 
     [field: Header("Default Fill")]
-    [field: Tooltip("Default mode only: a FLOOR on the colour-group count Apply Carrier Modes fills " +
-                    "this carrier to, and on the capacity it holds at run time (blocks = groups x the " +
-                    "level's blocks-per-group). A Default carrier always fills every Group Blocks " +
-                    "slot its body actually has, so leave this at 4 and it comes out full whatever " +
-                    "size the body is. Raise it above that slot count to clone Group Blocks slot 1 " +
-                    "and permanently make the body longer.")]
+    [field: Tooltip("Default mode only: the exact colour-group count Apply Carrier Modes fills this " +
+                    "carrier to, and the capacity it holds at run time (blocks = this x the level's " +
+                    "blocks-per-group). Apply Carrier Modes resizes the body to match — cloning " +
+                    "Group Blocks slot 1 to add slots, deleting cloned slots to remove them — so " +
+                    "what the carrier shows always equals what it holds.")]
     [field: Min(4)]
     [field: SerializeField] public int DefaultGroupCount { get; private set; } = 4;
 
@@ -119,18 +118,18 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
     [field: SerializeField] public float CloseSpeedOverride { get; private set; } = .6f;
 
     /// <summary>
-    /// How many colour groups a Default carrier fills to, and holds. Its body is the authority: a
-    /// carrier whose Group Blocks list has 50 slots fills all 50, so "full" means full whatever size
-    /// the body was grown to and there is no count to keep in sync by hand. Default Group Count is
-    /// only a floor on top of that — raise it past the slot count and the fill grows the body to
-    /// match (see LevelSandboxGenerator.EnsureGroupBlockCapacity).
+    /// How many colour groups a Default carrier fills to, and holds — Default Group Count, with the
+    /// same defensive clamp the Start fill applies (the inspector's Min(4) doesn't protect against a
+    /// hand-edited scene value).
     ///
     /// Shared by the Sandbox's Apply Carrier Modes and GetMaxBlockCount so the fill and the capacity
-    /// can never disagree — a carrier filled past its capacity would read IsFull() forever.
+    /// can never disagree — a carrier filled past its capacity would read IsFull() forever, and one
+    /// filled short of it would never complete. Apply Carrier Modes resizes Group Blocks to this same
+    /// number, so the body matches too.
     /// </summary>
     public int GetDefaultFillGroupCount()
     {
-        return Mathf.Max(Mathf.Max(4, DefaultGroupCount), GroupBlocks != null ? GroupBlocks.Count : 0);
+        return Mathf.Max(4, DefaultGroupCount);
     }
 
     [Inject] private CarrierConfig _config;
