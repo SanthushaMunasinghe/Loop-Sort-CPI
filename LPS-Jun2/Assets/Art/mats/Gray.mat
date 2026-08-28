@@ -25,7 +25,7 @@ Material:
   m_CustomRenderQueue: -1
   stringTagMap: {}
   disabledShaderPasses: []
-  m_LockedProperties: 
+  m_LockedProperties: _UseAlphaTest
   m_SavedProperties:
     serializedVersion: 3
     m_TexEnvs:
@@ -183,16 +183,16 @@ Material:
     - _ZSmooth: -0.5
     - _ZWrite: 1
     m_Colors:
-    - _BaseColor: {r: 0.8867924, g: 0.8867924, b: 0.8867924, a: 1}
+    - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
-    - _HColor: {r: 0.8867924, g: 0.8867924, b: 0.8867924, a: 1}
+    - _HColor: {r: 0.794, g: 0.794, b: 0.794, a: 1}
     - _MatCapColor: {r: 1, g: 1, b: 1, a: 1}
     - _OutlineColor: {r: 0.12100001, g: 0.12100001, b: 0.12100001, a: 1}
     - _ReflectionColor: {r: 1, g: 1, b: 1, a: 1}
     - _RimColor: {r: 0.8, g: 0.8, b: 0.8, a: 0.5}
-    - _SColor: {r: 0.34, g: 0.34, b: 0.34, a: 1}
+    - _SColor: {r: 0.3490566, g: 0.3490566, b: 0.3490566, a: 1}
     - _SpecColor: {r: 0.2, g: 0.2, b: 0.2, a: 1}
-    - _SpecularColor: {r: 0.75, g: 0.75, b: 0.75, a: 1}
+    - _SpecularColor: {r: 19.468569, g: 19.468569, b: 19.468569, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
