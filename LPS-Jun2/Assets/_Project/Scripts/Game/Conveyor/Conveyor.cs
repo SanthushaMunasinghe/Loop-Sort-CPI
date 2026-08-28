@@ -120,6 +120,14 @@ public sealed class Conveyor : GameBehaviourBase
         }
     }
 
+    public void ClearSideColor()
+    {
+        var targets = _propertyRegistry.GetTargets("Side Color");
+        foreach (var target in targets)
+            foreach (var targetRenderer in target.TargetRenderers)
+                targetRenderer.SetPropertyBlock(null, target.MaterialIndex);
+    }
+
     public void SetCollisionDistance(float slotCollisionDistance)
     {
         SlotCollisionDistance = slotCollisionDistance;

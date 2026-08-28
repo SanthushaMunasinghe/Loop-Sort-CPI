@@ -106,6 +106,26 @@ public sealed class SceneScope : LifetimeScope
              "belt. Leave at 0 to use ConveyorConfig's SlotElementOffset.")]
     [SerializeField] private float _conveyorSlotElementOffsetOverride;
 
+    [Tooltip("Overrides the occupancy ratio (0-1) at which the conveyor starts flashing red as a " +
+             "near-full warning. Leave at 0 to use ConveyorConfig's RedRatio.")]
+    [SerializeField] private float _conveyorRedRatioOverride;
+
+    [Tooltip("Overrides the color the conveyor's side material rests at (and returns to) when not " +
+             "warning. Leave alpha at 0 to auto-detect from the material's current color.")]
+    [SerializeField] private Color _conveyorRedCycleStartColorOverride;
+
+    [Tooltip("Overrides the color the conveyor's side material flashes to as the near-full warning. " +
+             "Leave alpha at 0 to use ConveyorConfig's SideRedColor.")]
+    [SerializeField] private Color _conveyorRedCycleEndColorOverride;
+
+    [Tooltip("Overrides how long, in seconds, each lerp between the start and end color takes. " +
+             "Leave at 0 to use the default speed.")]
+    [SerializeField] private float _conveyorRedCycleLerpDurationOverride;
+
+    [Tooltip("Overrides how long, in seconds, the color holds at each end of the cycle (start or end) " +
+             "before lerping again. Leave at 0 for no hold — continuous back-and-forth.")]
+    [SerializeField] private float _conveyorRedCycleIntervalOverride;
+
     [Header("Scene")]
     [Tooltip("Your camera. InteractionModule raycasts through it — without one there is no input.")]
     [SerializeField] private Camera _camera;
@@ -166,6 +186,11 @@ public sealed class SceneScope : LifetimeScope
     public int ConveyorMaxBlockCount => _conveyorMaxBlockCount;
     public int ConveyorSlotElementCountOverride => _conveyorSlotElementCountOverride;
     public float ConveyorSlotElementOffsetOverride => _conveyorSlotElementOffsetOverride;
+    public float ConveyorRedRatioOverride => _conveyorRedRatioOverride;
+    public Color ConveyorRedCycleStartColorOverride => _conveyorRedCycleStartColorOverride;
+    public Color ConveyorRedCycleEndColorOverride => _conveyorRedCycleEndColorOverride;
+    public float ConveyorRedCycleLerpDurationOverride => _conveyorRedCycleLerpDurationOverride;
+    public float ConveyorRedCycleIntervalOverride => _conveyorRedCycleIntervalOverride;
     public IReadOnlyList<Carrier> StartCarriers => _startCarriers;
     public IReadOnlyList<Carrier> EmptyCarriers => _emptyCarriers;
     public IEnumerable<Carrier> AllCarriers => _startCarriers.Concat(_emptyCarriers);

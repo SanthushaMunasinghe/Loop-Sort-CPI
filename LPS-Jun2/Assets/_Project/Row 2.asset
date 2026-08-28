@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Row 2
   m_EditorClassIdentifier: Assembly-CSharp::RowColorPattern
   _colors:
-  - <Base>k__BackingField: 3
+  - <Base>k__BackingField: 6
     <Shade>k__BackingField: 0
   - <Base>k__BackingField: 13
     <Shade>k__BackingField: 0
