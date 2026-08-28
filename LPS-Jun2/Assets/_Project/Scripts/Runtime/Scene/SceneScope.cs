@@ -126,6 +126,11 @@ public sealed class SceneScope : LifetimeScope
              "before lerping again. Leave at 0 for no hold — continuous back-and-forth.")]
     [SerializeField] private float _conveyorRedCycleIntervalOverride;
 
+    [Tooltip("Overrides the minimum speed multiplier the near-full slowdown can reach at 100% full — " +
+             "the conveyor never fully stops, it eases down to this fraction of its current speed. " +
+             "Leave at 0 to use a default of 0.2 (20% speed).")]
+    [SerializeField] private float _conveyorMinSpeedScaleOverride;
+
     [Header("Scene")]
     [Tooltip("Your camera. InteractionModule raycasts through it — without one there is no input.")]
     [SerializeField] private Camera _camera;
@@ -191,6 +196,7 @@ public sealed class SceneScope : LifetimeScope
     public Color ConveyorRedCycleEndColorOverride => _conveyorRedCycleEndColorOverride;
     public float ConveyorRedCycleLerpDurationOverride => _conveyorRedCycleLerpDurationOverride;
     public float ConveyorRedCycleIntervalOverride => _conveyorRedCycleIntervalOverride;
+    public float ConveyorMinSpeedScaleOverride => _conveyorMinSpeedScaleOverride;
     public IReadOnlyList<Carrier> StartCarriers => _startCarriers;
     public IReadOnlyList<Carrier> EmptyCarriers => _emptyCarriers;
     public IEnumerable<Carrier> AllCarriers => _startCarriers.Concat(_emptyCarriers);

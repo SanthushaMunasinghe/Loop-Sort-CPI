@@ -6,7 +6,10 @@ using VContainer;
 
 public sealed class ConveyorSpeedSystem : SystemBase
 {
+    private const float DefaultMinSpeedScale = 0.2f;
+
     [Inject] private Conveyor _conveyor;
+    [Inject] private ConveyorConfig _config;
     [Inject] private RemoteConfigModule _remoteConfigModule;
     [Inject] private SceneScope _sceneScope;
 
@@ -31,6 +34,7 @@ public sealed class ConveyorSpeedSystem : SystemBase
         var speedScale = 1f;
 
         var occupiedSlotCount = _conveyor.GetOccupiedSlotCount();
+        var occupiedSlotRatio01 = _conveyor.GetOccupiedSlotRatio01();
         var isFirstLevels = 2 > Prefs.Level && occupiedSlotCount > 0;
 
         // The GameReviveState slow-down is gone with the game state machine.
@@ -50,14 +54,27 @@ public sealed class ConveyorSpeedSystem : SystemBase
         else if (_blockPhysicsConfig.Type == BlockPhysicsConfig.PhysicsType.SandLoop ||
                  _blockPhysicsConfig.Type == BlockPhysicsConfig.PhysicsType.SandLoopLite)
         {
-            var occupiedSlotRatio01 = _conveyor.GetOccupiedSlotRatio01();
             var speedScaleOffset = occupiedSlotRatio01.RemapClamped(.25f, 1f, occupiedSlotRatio01, occupiedSlotRatio01 * 4f);
             speedScale = 1f + speedScaleOffset;
         }
         else if (_blockPhysicsConfig.Type == BlockPhysicsConfig.PhysicsType.NoTraffic)
         {
-            var occupiedSlotRatio01 = _conveyor.GetOccupiedSlotRatio01();
             speedScale = 1f + occupiedSlotRatio01 * .5f;
+        }
+
+        // Near-full warning slowdown: dampens whatever speed was already in effect above, rather than
+        // replacing it, so the speed at the threshold itself is unchanged and eases down toward (but
+        // never below) a minimum speed multiplier as occupancy climbs from the threshold to 100% full.
+        var redRatio = _sceneScope.ConveyorRedRatioOverride > 0f ? _sceneScope.ConveyorRedRatioOverride : _config.RedRatio;
+        if (occupiedSlotRatio01 >= redRatio)
+        {
+            var minSpeedScale = _sceneScope.ConveyorMinSpeedScaleOverride > 0f
+                ? _sceneScope.ConveyorMinSpeedScaleOverride
+                : DefaultMinSpeedScale;
+            var remainingRatio = 1f - redRatio;
+            var t = remainingRatio > 0f ? Mathf.Clamp01((occupiedSlotRatio01 - redRatio) / remainingRatio) : 1f;
+            var nearFullMultiplier = Mathf.Lerp(1f, minSpeedScale, t);
+            speedScale *= nearFullMultiplier;
         }
 
         if (Mathf.Approximately(speedScale, _conveyor.SpeedScale)) return;
