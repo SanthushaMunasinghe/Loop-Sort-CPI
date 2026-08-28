@@ -66,7 +66,7 @@ public sealed class ConveyorSpeedSystem : SystemBase
         // replacing it, so the speed at the threshold itself is unchanged and eases down toward (but
         // never below) a minimum speed multiplier as occupancy climbs from the threshold to 100% full.
         var redRatio = _sceneScope.ConveyorRedRatioOverride > 0f ? _sceneScope.ConveyorRedRatioOverride : _config.RedRatio;
-        if (occupiedSlotRatio01 >= redRatio)
+        if (_sceneScope.ConveyorNearFullWarningEnabled && occupiedSlotRatio01 >= redRatio)
         {
             var minSpeedScale = _sceneScope.ConveyorMinSpeedScaleOverride > 0f
                 ? _sceneScope.ConveyorMinSpeedScaleOverride

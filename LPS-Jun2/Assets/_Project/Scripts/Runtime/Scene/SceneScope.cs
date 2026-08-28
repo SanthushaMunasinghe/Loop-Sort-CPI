@@ -106,6 +106,10 @@ public sealed class SceneScope : LifetimeScope
              "belt. Leave at 0 to use ConveyorConfig's SlotElementOffset.")]
     [SerializeField] private float _conveyorSlotElementOffsetOverride;
 
+    [Tooltip("Enables the near-full warning (red flash + speed slowdown) configured below. When off, " +
+             "the conveyor keeps its normal speed and color regardless of occupancy.")]
+    [SerializeField] private bool _conveyorNearFullWarningEnabled = true;
+
     [Tooltip("Overrides the occupancy ratio (0-1) at which the conveyor starts flashing red as a " +
              "near-full warning. Leave at 0 to use ConveyorConfig's RedRatio.")]
     [SerializeField] private float _conveyorRedRatioOverride;
@@ -191,6 +195,7 @@ public sealed class SceneScope : LifetimeScope
     public int ConveyorMaxBlockCount => _conveyorMaxBlockCount;
     public int ConveyorSlotElementCountOverride => _conveyorSlotElementCountOverride;
     public float ConveyorSlotElementOffsetOverride => _conveyorSlotElementOffsetOverride;
+    public bool ConveyorNearFullWarningEnabled => _conveyorNearFullWarningEnabled;
     public float ConveyorRedRatioOverride => _conveyorRedRatioOverride;
     public Color ConveyorRedCycleStartColorOverride => _conveyorRedCycleStartColorOverride;
     public Color ConveyorRedCycleEndColorOverride => _conveyorRedCycleEndColorOverride;

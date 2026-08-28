@@ -51,6 +51,16 @@ public sealed class ConveyorRedSystem : SystemBase
     {
         base.OnUpdate(deltaTime);
 
+        if (!_sceneScope.ConveyorNearFullWarningEnabled)
+        {
+            if (_wasRed)
+            {
+                _conveyor.ClearSideColor();
+                _wasRed = false;
+            }
+            return;
+        }
+
         var ratio = _conveyor.GetOccupiedSlotRatio01();
         var redRatio = _sceneScope.ConveyorRedRatioOverride > 0f ? _sceneScope.ConveyorRedRatioOverride : _config.RedRatio;
         var red = ratio >= redRatio;
