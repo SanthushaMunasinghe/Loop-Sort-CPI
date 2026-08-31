@@ -16,8 +16,16 @@ MonoBehaviour:
   - Color:
       <Base>k__BackingField: 12
       <Shade>k__BackingField: 1
-    ConsecutiveGroupCount: 2
+    ConsecutiveGroupCount: 3
   - Color:
       <Base>k__BackingField: 8
       <Shade>k__BackingField: 0
-    ConsecutiveGroupCount: 2
+    ConsecutiveGroupCount: 3
+  - Color:
+      <Base>k__BackingField: 12
+      <Shade>k__BackingField: 1
+    ConsecutiveGroupCount: 3
+  - Color:
+      <Base>k__BackingField: 8
+      <Shade>k__BackingField: 0
+    ConsecutiveGroupCount: 3

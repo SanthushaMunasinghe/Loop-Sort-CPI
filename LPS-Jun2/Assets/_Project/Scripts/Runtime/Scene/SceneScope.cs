@@ -506,15 +506,30 @@ public sealed class SceneScope : LifetimeScope
     }
 
     /// <summary>
-    /// Draws `count` colors from palette, sequentially, never letting a run of the same color exceed
-    /// maxConsecutive (0 or less = unlimited). Walks forward through the palette from the streak
-    /// color to find a different one when the cap would be exceeded — same approach as the
-    /// single-color reroll in ApplyRandomCarrierColors below.
+    /// Draws `count` colors from palette, sequentially, keeping every run of the same color between
+    /// minConsecutive and maxConsecutive long (maxConsecutive 0 or less = unlimited; minConsecutive
+    /// is clamped to at least 1, and down to maxConsecutive when that's set and lower — so the two
+    /// can never conflict). A switch away from the current run's color — whether volunteered by the
+    /// random draw or forced by hitting maxConsecutive — is refused (redrawing the streak color
+    /// instead) until the current run has met minConsecutive AND there's still enough of `count` left
+    /// for a fresh run to meet it too. That means minConsecutive wins over maxConsecutive whenever
+    /// `count` doesn't divide evenly between them: a run is allowed to overshoot maxConsecutive right
+    /// at the tail rather than hand off to a run that can't reach minConsecutive before `count` runs
+    /// out — a single sub-minimum run is far more visible than one run occasionally being a bit long.
+    /// Forced switches walk forward through the palette from the streak color to find a different one
+    /// — same approach as the single-color reroll in ApplyRandomCarrierColors below. The only runs
+    /// that can still end up short of minConsecutive are ones where `count` itself is smaller than
+    /// minConsecutive — nothing can fix that, there simply aren't enough colors to draw.
     /// </summary>
-    public static List<ColorType> DrawWithConsecutiveCap(int count, List<ColorType> palette, int maxConsecutive)
+    public static List<ColorType> DrawWithConsecutiveCap(int count, List<ColorType> palette, int maxConsecutive,
+        int minConsecutive = 1)
     {
         var colorTypes = new List<ColorType>(count);
         if (palette.Count == 0) return colorTypes;
+
+        var effectiveMin = maxConsecutive > 0
+            ? Mathf.Clamp(minConsecutive, 1, maxConsecutive)
+            : Mathf.Max(1, minConsecutive);
 
         ColorType? streakColor = null;
         var streakLength = 0;
@@ -522,8 +537,11 @@ public sealed class SceneScope : LifetimeScope
         for (var i = 0; i < count; i++)
         {
             var colorType = palette.GetRandom();
+            var slotsLeft = count - i;
+            var roomForNewStreak = slotsLeft >= effectiveMin;
 
-            if (maxConsecutive > 0 && streakColor != null && streakLength >= maxConsecutive && palette.Count > 1)
+            if (maxConsecutive > 0 && streakColor != null && streakLength >= maxConsecutive &&
+                palette.Count > 1 && roomForNewStreak)
             {
                 var start = palette.IndexOf(streakColor.Value);
                 for (var j = 1; j <= palette.Count; j++)
@@ -534,6 +552,11 @@ public sealed class SceneScope : LifetimeScope
                     colorType = candidate;
                     break;
                 }
+            }
+            else if (streakColor != null && colorType != streakColor.Value)
+            {
+                var canSwitch = streakLength >= effectiveMin && roomForNewStreak;
+                if (!canSwitch) colorType = streakColor.Value;
             }
 
             if (streakColor != null && colorType == streakColor.Value) streakLength++;
@@ -646,11 +669,12 @@ public sealed class SceneScope : LifetimeScope
         }
 
         List<ColorType> colorTypes;
-        if (carrier.MaxConsecutiveSameColorGroups > 0)
+        if (carrier.MaxConsecutiveSameColorGroups > 0 || carrier.MinConsecutiveSameColorGroups > 1)
         {
             // The cap already keeps every group from landing on the same color whenever it's below
             // groups.Count, so Prevent Single Color Carriers' own fixup below would be redundant.
-            colorTypes = DrawWithConsecutiveCap(groups.Count, drawPalette, carrier.MaxConsecutiveSameColorGroups);
+            colorTypes = DrawWithConsecutiveCap(groups.Count, drawPalette, carrier.MaxConsecutiveSameColorGroups,
+                carrier.MinConsecutiveSameColorGroups);
         }
         else
         {

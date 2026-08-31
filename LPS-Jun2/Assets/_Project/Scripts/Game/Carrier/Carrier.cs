@@ -84,6 +84,15 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
                     "restricted palette too, when that's on.")]
     [field: SerializeField] public int MaxConsecutiveSameColorGroups { get; private set; }
 
+    [field: Tooltip("Start mode only: floors how many consecutive groups must land on the same color " +
+                    "before the draw is allowed to switch to a different one — e.g. 2 means colors " +
+                    "always come in pairs or longer, never a lone singleton group. Can't go below 1 " +
+                    "(there's always at least 1 of whatever color a group lands on). Applies whenever " +
+                    "it's above 1, even if Max Consecutive Same Color Groups above is 0 (uncapped), " +
+                    "and is clamped down to it when that's set and lower. Applies against Override " +
+                    "Start Color's restricted palette too, when that's on.")]
+    [field: SerializeField, Min(1)] public int MinConsecutiveSameColorGroups { get; private set; } = 2;
+
     [field: Header("Empty Fill")]
     [field: Tooltip("Empty mode only: caps how many of the level's colour groups this sink needs " +
                     "filled before it completes and leaves — e.g. 2 out of the level's 4 groups " +
