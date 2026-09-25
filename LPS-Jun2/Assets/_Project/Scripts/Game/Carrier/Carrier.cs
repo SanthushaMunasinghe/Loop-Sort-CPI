@@ -118,6 +118,9 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
                     "default 0.6s). Lower to close — and leave — faster.")]
     [field: SerializeField] public float CloseSpeedOverride { get; private set; } = .6f;
 
+    /// <summary>Carries a ShoppingCart component — holds Grocery Items instead of cube blocks.</summary>
+    public bool IsShoppingCart { get; private set; }
+
     /// <summary>
     /// How many colour groups a Default carrier fills to, and holds. Default Group Count is the
     /// authority — the body follows it (Apply Default Group Count grows or shrinks Group Blocks to
@@ -180,6 +183,7 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
 
         _originalMaterial = HeadRenderer.sharedMaterials[0];
         GetComponentsInChildren(_transferHandlers);
+        IsShoppingCart = TryGetComponent<ShoppingCart>(out _);
     }
 
     public override void OnRent()

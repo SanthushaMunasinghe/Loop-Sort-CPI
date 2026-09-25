@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Cysharp.Threading.Tasks;
 using Dreamteck.Splines;
 using MessagePipe;
 using Scellecs.Morpeh;
@@ -89,6 +90,24 @@ public sealed class SceneScope : LifetimeScope
     [Tooltip("Carriers this scene runs when Use Default Carriers is on. Populated by hand. Each one " +
              "needs its own CarrierBlockTrigger somewhere in the scene to take blocks in.")]
     [SerializeField] private List<Carrier> _defaultCarriers = new();
+
+    [Header("Shopping Carts")]
+    [Tooltip("Runs this scene on Shopping Carts only: the list below behaves like Default carriers — " +
+             "hands Grocery Items out on click and takes them back through its own Grocery Triggers. " +
+             "Takes priority over Use Default Carriers and everything else in Carriers.")]
+    [SerializeField] private bool _useShoppingCarts;
+
+    [Tooltip("Carriers (with a ShoppingCart component) this scene runs when Use Shopping Carts is on. " +
+             "Each is filled at Play with Default Group Count groups of Grocery Items, one random type " +
+             "per group. Each needs its own GroceryTrigger somewhere in the scene to take items in.")]
+    [SerializeField] private List<Carrier> _shoppingCarts = new();
+
+    [Tooltip("The unified Grocery Item prefab every cart is filled with.")]
+    [SerializeField] private GroceryItem _groceryItemPrefab;
+
+    [Tooltip("One entry per grocery type — a Grocery Item's type is its index here. Entries with no " +
+             "Model are left out of the random draw.")]
+    [SerializeField] private List<GroceryModel> _groceryModels = new();
 
     // Self-registered by each EmptyCarrierRowExit in its own Awake — not hand-populated, so this
     // stays correct across however many rows the Level Sandbox generates without any manual wiring.
@@ -182,24 +201,36 @@ public sealed class SceneScope : LifetimeScope
     public bool UseDefaultCarriers => _useDefaultCarriers;
     public IReadOnlyList<Carrier> DefaultCarriers => _defaultCarriers;
 
+    public bool UseShoppingCarts => _useShoppingCarts;
+    public IReadOnlyList<Carrier> ShoppingCarts => _shoppingCarts;
+    public IReadOnlyList<GroceryModel> GroceryModels => _groceryModels;
+
+    /// <summary>Default carriers and shopping carts both feed themselves through their own triggers, so
+    /// the Empty carrier machinery (rows, the global trigger) has nothing to do in either.</summary>
+    public bool UsesSelfFedCarriers => _useShoppingCarts || _useDefaultCarriers;
+
     /// <summary>
-    /// Every carrier this scene actually runs. Use Default Carriers replaces the Start/Empty pair
-    /// outright rather than adding to it — a Default carrier is both source and sink, so a scene
-    /// running on them has no use for the other two lists, and leaving them in would let inert
-    /// carriers score in HasBetterCarrier and hold blocks back from the ones that can use them.
+    /// Every carrier this scene actually runs. Use Shopping Carts and Use Default Carriers each replace
+    /// the Start/Empty pair outright rather than adding to it — both are source and sink, so a scene
+    /// running on them has no use for the other lists, and leaving them in would let inert carriers
+    /// score in HasBetterCarrier and hold blocks back from the ones that can use them.
     /// </summary>
-    public IEnumerable<Carrier> AllCarriers => _useDefaultCarriers
-        ? _defaultCarriers
-        : _startCarriers.Concat(_emptyCarriers);
+    public IEnumerable<Carrier> AllCarriers => _useShoppingCarts
+        ? _shoppingCarts
+        : _useDefaultCarriers
+            ? _defaultCarriers
+            : _startCarriers.Concat(_emptyCarriers);
 
     /// <summary>The gate every trigger passes through — see BlockTransferSystem.HandleCarrierTrigger.</summary>
-    public bool IsRegisteredCarrier(Carrier carrier) => _useDefaultCarriers
-        ? _defaultCarriers.Contains(carrier)
-        : _startCarriers.Contains(carrier) || _emptyCarriers.Contains(carrier);
+    public bool IsRegisteredCarrier(Carrier carrier) => _useShoppingCarts
+        ? _shoppingCarts.Contains(carrier)
+        : _useDefaultCarriers
+            ? _defaultCarriers.Contains(carrier)
+            : _startCarriers.Contains(carrier) || _emptyCarriers.Contains(carrier);
 
-    /// <summary>Rows are an Empty carrier feature, so Use Default Carriers switches them off with the
-    /// rest of that system regardless of what the row toggle itself is set to.</summary>
-    public bool UseEmptyCarrierRows => !_useDefaultCarriers && _useEmptyCarrierRows;
+    /// <summary>Rows are an Empty carrier feature, so Use Default Carriers / Use Shopping Carts switch
+    /// them off with the rest of that system regardless of what the row toggle itself is set to.</summary>
+    public bool UseEmptyCarrierRows => !UsesSelfFedCarriers && _useEmptyCarrierRows;
     public IReadOnlyList<EmptyCarrierRow> EmptyCarrierRows => _emptyCarrierRows;
 
     /// <summary>Called by each EmptyCarrierRowExit's own Awake so ShortcutManager can drive every row
@@ -239,8 +270,8 @@ public sealed class SceneScope : LifetimeScope
     public Carrier FindCompatibleEmptyCarrier(Block block)
     {
         // Default carriers each take blocks in through their own trigger, so there is nothing for the
-        // one global trigger to route and no Empty carrier left running to route it to.
-        if (_useDefaultCarriers) return null;
+        // one global trigger to route and no Empty carrier left running to route it to. Same for carts.
+        if (UsesSelfFedCarriers) return null;
 
         if (_useEmptyCarrierRows)
         {
@@ -713,6 +744,99 @@ public sealed class SceneScope : LifetimeScope
             block.OverrideColorType(colorTypes[i]);
 
         return colorTypes;
+    }
+
+    /// <summary>
+    /// Fills every Shopping Cart with Grocery Items, at run time only — called by LevelSandbox right
+    /// after it adopts the authored blocks, so the carts' own Awake has run and the conveyor already
+    /// knows its group size.
+    ///
+    /// Each cart gets Default Group Count groups of the conveyor's Group Block Count items, stacked the
+    /// same way AddBlock lays out any carrier's blocks, and each group draws one random grocery type.
+    /// The cart's Max Consecutive Same Color Groups caps same-type runs, and Prevent Single Color
+    /// Carriers rerolls a cart that came out all one type — both exactly as for coloured blocks.
+    /// </summary>
+    public void FillShoppingCarts()
+    {
+        if (!_useShoppingCarts) return;
+
+        if (_groceryItemPrefab == null)
+        {
+            Debug.LogWarning($"<b>{nameof(SceneScope)}</b>: Use Shopping Carts is on but no Grocery Item " +
+                             "Prefab is assigned. Carts are left empty.", this);
+            return;
+        }
+
+        // Match key -> Grocery Models index, for every entry that actually has a model.
+        var typeByKey = new Dictionary<ColorType, int>();
+        var palette = new List<ColorType>();
+        for (var i = 0; i < _groceryModels.Count; i++)
+        {
+            if (_groceryModels[i]?.Model == null) continue;
+            var key = GroceryItem.ToMatchKey(i);
+            typeByKey[key] = i;
+            palette.Add(key);
+        }
+
+        if (palette.Count == 0)
+        {
+            Debug.LogWarning($"<b>{nameof(SceneScope)}</b>: Use Shopping Carts is on but Grocery Models " +
+                             "has no entry with a Model. Carts are left empty.", this);
+            return;
+        }
+
+        var itemsPerGroup = _conveyor != null ? _conveyor.GroupBlockCount : 0;
+        if (itemsPerGroup <= 0)
+        {
+            Debug.LogWarning($"<b>{nameof(SceneScope)}</b>: conveyor has no Group Block Count. Carts are " +
+                             "left empty.", this);
+            return;
+        }
+
+        using var p = ListPool<string>.Get(out var log);
+        foreach (var cart in _shoppingCarts)
+        {
+            if (cart == null || !cart.gameObject.activeInHierarchy) continue;
+
+            var groupCount = cart.GetDefaultFillGroupCount();
+            var keys = DrawWithConsecutiveCap(groupCount, palette, cart.MaxConsecutiveSameColorGroups);
+            if (_preventSingleColorCarriers) BreakSingleType(keys, palette);
+
+            foreach (var key in keys)
+            {
+                var type = typeByKey[key];
+                for (var i = 0; i < itemsPerGroup; i++)
+                {
+                    var item = Instantiate(_groceryItemPrefab, cart.BlockParent);
+                    item.SetType(type, _groceryModels[type]);
+                    cart.AddBlock(item.GetComponent<Block>(), motion: false).Forget();
+                }
+            }
+
+            log.Add($"{cart.name} [{string.Join(", ", keys.Select(k => _groceryModels[typeByKey[k]].Name))}]");
+        }
+
+        if (log.Count > 0)
+            Debug.Log($"<b>{nameof(SceneScope)}</b>: shopping carts — {string.Join("; ", log)}.", this);
+    }
+
+    /// <summary>Same walk-on reroll ApplyRandomCarrierColors uses for Prevent Single Color Carriers.</summary>
+    private static void BreakSingleType(List<ColorType> keys, List<ColorType> palette)
+    {
+        if (keys.Count < 2 || palette.Count < 2) return;
+        foreach (var key in keys)
+            if (key != keys[0])
+                return;
+
+        var start = palette.IndexOf(keys[0]);
+        for (var i = 1; i <= palette.Count; i++)
+        {
+            var candidate = palette.GetWrapped(start + i);
+            if (candidate == keys[0]) continue;
+
+            keys[^1] = candidate;
+            return;
+        }
     }
 
     protected override void Configure(IContainerBuilder builder)

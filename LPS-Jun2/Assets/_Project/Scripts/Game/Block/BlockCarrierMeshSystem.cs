@@ -55,6 +55,7 @@ public sealed class BlockCarrierMeshSystem : SystemBase
 
         var carrier = m.Carrier;
         var block = m.Block;
+        if (carrier.IsShoppingCart) return;
 
         var blockCoordinate = carrier.GetBlockCoordinate(block);
         using var p = ListPool<Block>.Get(out var blocks);
@@ -74,12 +75,14 @@ public sealed class BlockCarrierMeshSystem : SystemBase
     private void OnCarrierRemoveBlock(CarrierRemoveBlockMessage m)
     {
         m.Block.MeshRenderer.enabled = true;
+        if (m.Carrier.IsShoppingCart) return;
         HandleGroupBlocks(m.Carrier);
     }
 
     private void OnBlockCarrierMeshUpdate(BlockCarrierMeshUpdateMessage m)
     {
         var carrier = m.Carrier;
+        if (carrier.IsShoppingCart) return;
         var blocks = carrier.GetBlocks();
         foreach (var block in blocks)
         {
@@ -94,6 +97,8 @@ public sealed class BlockCarrierMeshSystem : SystemBase
         _isBlockCreateComplete = true;
         foreach (var carrier in _sceneScope.AllCarriers)
         {
+            // Grocery Items keep their own model and orientation, and carts have no group blocks.
+            if (carrier.IsShoppingCart) continue;
             var blocks = carrier.GetBlocks();
             foreach (var b in blocks)
                 SetCarrierBlockMesh(carrier, b);

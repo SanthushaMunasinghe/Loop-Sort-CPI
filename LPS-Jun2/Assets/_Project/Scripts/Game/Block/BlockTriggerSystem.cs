@@ -44,6 +44,7 @@ public sealed class BlockTriggerSystem : SystemBase, IFixedSystem
     private void OnLevelBuildComplete(LevelBuildCompleteMessage obj)
     {
         BindCarrierTriggers();
+        BindGroceryTriggers();
         BindGlobalTrigger();
     }
 
@@ -60,6 +61,9 @@ public sealed class BlockTriggerSystem : SystemBase, IFixedSystem
             FindObjectsSortMode.None);
         if (triggers.Length == 0)
         {
+            // Carts are fed by GroceryTriggers instead, so no CarrierBlockTrigger is expected there.
+            if (_sceneScope.UseShoppingCarts) return;
+
             Debug.LogWarning($"[{nameof(BlockTriggerSystem)}] No CarrierBlockTrigger in the scene — " +
                              "conveyor to carrier pickup will not work. Re-generate the level, or place " +
                              "the triggers by hand.");
@@ -90,6 +94,48 @@ public sealed class BlockTriggerSystem : SystemBase, IFixedSystem
     }
 
     /// <summary>
+    /// Every GroceryTrigger in the scene, each feeding the shopping cart it names. Only Grocery Items
+    /// are picked up; anything else riding the belt passes through. From there it is exactly a Default
+    /// carrier's pickup — HandleCarrierTrigger's registered-carrier gate, type match, better-carrier
+    /// scan and no-straight-back rule.
+    /// </summary>
+    private void BindGroceryTriggers()
+    {
+        var triggers = Object.FindObjectsByType<GroceryTrigger>(FindObjectsInactive.Include,
+            FindObjectsSortMode.None);
+        if (triggers.Length == 0)
+        {
+            if (_sceneScope.UseShoppingCarts)
+                Debug.LogWarning($"[{nameof(BlockTriggerSystem)}] Use Shopping Carts is on but there is no " +
+                                 "GroceryTrigger in the scene — conveyor to cart pickup will not work.");
+            return;
+        }
+
+        foreach (var groceryTrigger in triggers)
+        {
+            var cart = groceryTrigger.Cart;
+            if (cart == null)
+            {
+                Debug.LogWarning($"[{nameof(BlockTriggerSystem)}] Grocery trigger '{groceryTrigger.name}' " +
+                                 "has no Cart assigned.", groceryTrigger);
+                continue;
+            }
+
+            if (!groceryTrigger.TryGetComponent<BlockTrigger>(out var blockTrigger)) continue;
+
+            blockTrigger.AddListener(block =>
+            {
+                if (!block.TryGetComponent<GroceryItem>(out _)) return;
+                var conveyorSlot = block.Container as ConveyorSlot;
+                if (conveyorSlot == null) return;
+                using var p = ListPool<Block>.Get(out var blocks);
+                blocks.Add(block);
+                _blockTransferSystem.HandleCarrierTrigger(cart, blocks);
+            });
+        }
+    }
+
+    /// <summary>
     /// Binds the one hand-placed GlobalTrigger (SceneScope.GlobalTrigger) — unlike a per-carrier
     /// trigger it isn't tied to a specific carrier, so on each block it asks SceneScope to find a
     /// compatible Empty carrier and routes the block there.
@@ -98,7 +144,8 @@ public sealed class BlockTriggerSystem : SystemBase, IFixedSystem
     {
         // Default carriers each take blocks in through their own trigger, so the global one has
         // nothing to do — and FindCompatibleEmptyCarrier would return null on every block anyway.
-        if (_sceneScope.UseDefaultCarriers) return;
+        // Shopping carts are fed the same way.
+        if (_sceneScope.UsesSelfFedCarriers) return;
 
         var globalTrigger = _sceneScope.GlobalTrigger;
         if (globalTrigger == null)

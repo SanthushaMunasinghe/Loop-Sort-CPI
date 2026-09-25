@@ -128,6 +128,9 @@ public sealed class LevelSandbox : MonoBehaviour
     {
         foreach (var carrier in _sceneScope.AllCarriers)
             carrier.AdoptAuthoredBlocks();
+
+        // Carts aren't authored with blocks — they're filled with Grocery Items here instead.
+        _sceneScope.FillShoppingCarts();
     }
 
     /// <summary>
