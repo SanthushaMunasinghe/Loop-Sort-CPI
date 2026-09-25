@@ -38,8 +38,6 @@ public sealed class BlockTransferSystem : SystemBase
     private ConveyorSystemConfig _conveyorSystemConfig;
     private SoundConfig _soundConfig;
 
-    private readonly Dictionary<Carrier, Carrier> _removeTransferBlockTarget = new();
-
     protected override void BuildMessages(DisposableBagBuilder bag)
     {
         _blockTransferSub.Subscribe(OnBlockTransfer).AddTo(bag);
@@ -65,8 +63,6 @@ public sealed class BlockTransferSystem : SystemBase
 
     private void OnLevelBuildComplete(LevelBuildCompleteMessage m)
     {
-        SetRemoveTransferBlockTargets();
-
         _blockPhysicsConfig = _remoteConfigModule.GetDataClassNew<BlockPhysicsConfig>();
         if (_blockPhysicsConfig.Type != BlockPhysicsConfig.PhysicsType.None) return;
         AddCarrierTriggers();
@@ -88,56 +84,6 @@ public sealed class BlockTransferSystem : SystemBase
             var travel = _splineComputer.TravelUnclamped(project.percent, _conveyorConfig.CarrierTriggerOffset, Spline.Direction.Backward);
             var travelTrigger = triggerGroup.AddTrigger(travel, SplineTrigger.Type.Forward);
             travelTrigger.AddListener(splineUser => HandleCarrierTrigger(splineUser, carrier));
-        }
-    }
-
-    private void SetRemoveTransferBlockTargets()
-    {
-        using var p1 = DictionaryPool<Carrier, SplineSample>.Get(out var splineSamples);
-        foreach (var carrier in _sceneScope.AllCarriers)
-        {
-            var worldPosition = carrier.TransferProjectPoint.position;
-            var project = _splineComputer.Project(worldPosition);
-            splineSamples[carrier] = project;
-        }
-
-        foreach (var carrier in _sceneScope.AllCarriers)
-        {
-            SplineSample? targetSample = null;
-            Carrier targetCarrier = null;
-
-            var carrierSample = splineSamples[carrier];
-            var carrierPercent = _splineComputer.TravelUnclamped(carrierSample.percent, 1.5f);
-            foreach (var (c, s) in splineSamples)
-            {
-                if (carrier == c) continue;
-                if (carrierPercent > s.percent) continue;
-                if (targetSample != null)
-                {
-                    var sample = targetSample.Value;
-                    if (s.percent >= sample.percent) continue;
-                }
-                targetSample = s;
-                targetCarrier = c;
-            }
-
-            if (targetSample == null)
-            {
-                foreach (var (c, s) in splineSamples)
-                {
-                    if (carrier == c) continue;
-                    if (targetSample != null)
-                    {
-                        var sample = targetSample.Value;
-                        if (s.percent >= sample.percent) continue;
-                    }
-                    if (Math.Abs(s.percent - carrierSample.percent) < .01f) continue;
-                    targetSample = s;
-                    targetCarrier = c;
-                }
-            }
-
-            _removeTransferBlockTarget[carrier] = targetCarrier;
         }
     }
 
@@ -401,12 +347,18 @@ public sealed class BlockTransferSystem : SystemBase
         if (!_sceneScope.IsRegisteredCarrier(carrier)) return;
 
         // Same here — no state machine, so conveyor -> carrier pickup is always allowed.
+        //
+        // A block remembers the carrier it was just handed out by (BlockTransferCarrier) so it can't
+        // drop straight back into it — only a Default carrier can take in what it gives out, so this
+        // only ever matters for those. Reaching any other running carrier's trigger means it has left
+        // its own carrier behind, and it may go home again from there. Used to wait for one specific
+        // carrier's trigger (the next one down the spline), which stranded every block for good
+        // whenever that carrier's trigger was switched off or missing.
         foreach (var block in blocks)
         {
             if (!_blockTransferCarriers.Has(block)) continue;
             var blockTransferCarrier = _blockTransferCarriers.Get(block);
-            var targetCarrier = _removeTransferBlockTarget[blockTransferCarrier.Carrier];
-            if (carrier == targetCarrier) _blockTransferCarriers.Remove(block);
+            if (carrier != blockTransferCarrier.Carrier) _blockTransferCarriers.Remove(block);
         }
 
         if (!carrier.gameObject.activeInHierarchy)

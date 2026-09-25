@@ -813,7 +813,16 @@ MonoBehaviour:
     <Shade>k__BackingField: 0
   <OnlyCompatibleColor>k__BackingField: 0
   <StartGroupCount>k__BackingField: 4
+  <UseColorPattern>k__BackingField: 0
+  <ColorPattern>k__BackingField: {fileID: 0}
+  <OverrideStartColor>k__BackingField: 0
+  <OverrideStartColorIndices>k__BackingField: 
+  <MaxConsecutiveSameColorGroups>k__BackingField: 0
+  <DefaultGroupCount>k__BackingField: 4
   <EmptyGroupLimit>k__BackingField: 4
+  <OverrideCloseMotion>k__BackingField: 0
+  <CloseWaitTimeOverride>k__BackingField: 0
+  <CloseSpeedOverride>k__BackingField: 0.6
 --- !u!114 &621609861158068421
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1694,7 +1703,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: c9a9c2e4f6c91a94b918f775e89492ae, type: 3}
       propertyPath: m_IsActive
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -1930,7 +1939,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: f36dd4c88caca314884d6be68c185289, type: 3}
       propertyPath: m_IsActive
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -2016,7 +2025,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 7a8c1b0d52889bd4b844ff9f142a9949, type: 3}
       propertyPath: m_IsActive
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

@@ -87,13 +87,13 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
     [field: SerializeField] public int MaxConsecutiveSameColorGroups { get; private set; }
 
     [field: Header("Default Fill")]
-    [field: Tooltip("Default mode only: a FLOOR on the colour-group count Apply Carrier Modes fills " +
-                    "this carrier to, and on the capacity it holds at run time (blocks = groups x the " +
-                    "level's blocks-per-group). A Default carrier always fills every Group Blocks " +
-                    "slot its body actually has, so leave this at 4 and it comes out full whatever " +
-                    "size the body is. Raise it above that slot count to clone Group Blocks slot 1 " +
-                    "and permanently make the body longer.")]
-    [field: Min(4)]
+    [field: Tooltip("Default mode only: exactly how many colour groups this carrier is filled to, and " +
+                    "holds at run time (blocks = groups x the level's blocks-per-group). Press Apply " +
+                    "Default Group Count below (or the Sandbox's Apply Carrier Modes) after changing " +
+                    "it: that grows or shrinks Group Blocks to match — cloning slot 1 to go past the " +
+                    "prefab's own slots, deleting those clones again to come back down — and refills " +
+                    "the blocks.")]
+    [field: Min(1)]
     [field: SerializeField] public int DefaultGroupCount { get; private set; } = 4;
 
     [field: Header("Empty Fill")]
@@ -119,18 +119,17 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
     [field: SerializeField] public float CloseSpeedOverride { get; private set; } = .6f;
 
     /// <summary>
-    /// How many colour groups a Default carrier fills to, and holds. Its body is the authority: a
-    /// carrier whose Group Blocks list has 50 slots fills all 50, so "full" means full whatever size
-    /// the body was grown to and there is no count to keep in sync by hand. Default Group Count is
-    /// only a floor on top of that — raise it past the slot count and the fill grows the body to
-    /// match (see LevelSandboxGenerator.EnsureGroupBlockCapacity).
+    /// How many colour groups a Default carrier fills to, and holds. Default Group Count is the
+    /// authority — the body follows it (Apply Default Group Count grows or shrinks Group Blocks to
+    /// match, see LevelSandboxGenerator.SetGroupBlockCount), never the other way round, so a body that
+    /// was once grown can be brought back down.
     ///
-    /// Shared by the Sandbox's Apply Carrier Modes and GetMaxBlockCount so the fill and the capacity
-    /// can never disagree — a carrier filled past its capacity would read IsFull() forever.
+    /// Shared by the fill buttons and GetMaxBlockCount so the fill and the capacity can never
+    /// disagree — a carrier filled past its capacity would read IsFull() forever.
     /// </summary>
     public int GetDefaultFillGroupCount()
     {
-        return Mathf.Max(Mathf.Max(4, DefaultGroupCount), GroupBlocks != null ? GroupBlocks.Count : 0);
+        return Mathf.Max(1, DefaultGroupCount);
     }
 
     [Inject] private CarrierConfig _config;
@@ -353,6 +352,14 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
 
             block.CompleteContainer();
         }
+
+        // A Default carrier whose blocks were filled before its Default Group Count last changed holds
+        // more than it has room for, and would read IsFull() until it had handed the surplus out.
+        if (Mode == CarrierMode.Default && _blocks.Count > GetMaxBlockCount())
+            Debug.LogWarning($"[{nameof(Carrier)}] '{name}' holds {_blocks.Count} blocks but its Default " +
+                             $"Group Count only makes room for {GetMaxBlockCount()}, so it won't take " +
+                             "blocks back in until it has handed the difference out. Press Apply Default " +
+                             "Group Count on it to refill.", this);
 
         if (CanComplete()) SetComplete();
     }

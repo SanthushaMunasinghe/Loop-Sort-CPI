@@ -252,8 +252,8 @@ public sealed class LevelSandboxEditor : Editor
 
     /// <summary>
     /// Reshapes the generated carriers to match the Mode each one is set to: Start and Default are
-    /// filled up (to Start Group Count / Default Group Count, both a minimum of 4 groups), Empty is
-    /// cleared out. Only block counts change — the colours are the scene view's, and SceneScope
+    /// filled up (to Start Group Count, a minimum of 4 groups / exactly Default Group Count, with the
+    /// body grown or shrunk to match), Empty is cleared out. Only block counts change — the colours are the scene view's, and SceneScope
     /// rerolls them every time you press Play.
     /// </summary>
     private void ApplyCarrierModes()
@@ -286,12 +286,7 @@ public sealed class LevelSandboxEditor : Editor
         // one Ctrl+Z put the level back.
         var undoGroup = Undo.GetCurrentGroup();
 
-        // Same stub defaults the generator runs with, so a filled carrier matches a generated one.
-        var physicsType = new BlockPhysicsConfig().Type;
-        var carrierBlockArgs = Sandbox.CarrierBlockArgs;
-        var blockSize = LevelGeometry.GetBlockSize(carrierBlockArgs);
-        var groupBlockCount = LevelGeometry.GetGroupBlockCount(assets.CarrierConfig, physicsType, carrierBlockArgs);
-        var configSize = assets.CarrierConfig.Sizes[physicsType];
+        var fill = new FillSizing(Sandbox, assets);
 
         var startFilled = 0;
         var emptied = 0;
@@ -309,7 +304,7 @@ public sealed class LevelSandboxEditor : Editor
             {
                 case CarrierMode.Start:
                     LevelSandboxGenerator.FillCarrier(carrier, assets.Blocks, assets.Colors, palette,
-                        blockSize, groupBlockCount, configSize, carrier.StartGroupCount);
+                        fill.BlockSize, fill.GroupBlockCount, fill.ConfigSize, Mathf.Max(4, carrier.StartGroupCount));
                     startFilled++;
                     startGroups += Mathf.Max(4, carrier.StartGroupCount);
                     break;
@@ -320,10 +315,7 @@ public sealed class LevelSandboxEditor : Editor
                     break;
 
                 default:
-                    // Fills every Group Blocks slot the body has, so a Default carrier comes out full
-                    // without a count to set by hand. Same number GetMaxBlockCount uses at run time.
-                    LevelSandboxGenerator.FillCarrier(carrier, assets.Blocks, assets.Colors, palette,
-                        blockSize, groupBlockCount, configSize, carrier.GetDefaultFillGroupCount());
+                    FillDefaultCarrier(carrier, assets, palette, fill);
                     defaultFilled++;
                     defaultGroups += carrier.GetDefaultFillGroupCount();
                     break;
@@ -343,6 +335,97 @@ public sealed class LevelSandboxEditor : Editor
                   $"({startGroups} groups), {defaultFilled} default filled ({defaultGroups} groups), " +
                   $"{emptied} emptied. Groups come from each carrier's Start Group Count / Default " +
                   "Group Count; Ctrl+Z puts the level back if that isn't what you wanted.", Sandbox);
+    }
+
+    /// <summary>
+    /// The per-carrier half of Apply Carrier Modes, for the Carrier inspector's Apply Default Group
+    /// Count button: refills just these carriers to their own Default Group Count, without touching
+    /// anything else in the level. Carriers not in Default mode are skipped. Everything lands in one
+    /// undo step. Returns how many carriers were refilled.
+    /// </summary>
+    public static int ApplyDefaultGroupCount(IReadOnlyList<Carrier> carriers)
+    {
+        var undoGroup = Undo.GetCurrentGroup();
+        var refilled = 0;
+
+        foreach (var carrier in carriers)
+        {
+            if (carrier == null || carrier.Mode != CarrierMode.Default) continue;
+
+            var sandbox = FindSandbox(carrier.gameObject.scene);
+            if (sandbox == null)
+            {
+                Debug.LogError($"<b>Level Sandbox</b>: no LevelSandbox in '{carrier.gameObject.scene.name}', " +
+                               $"so there is no level sizing to refill '{carrier.name}' with.", carrier);
+                continue;
+            }
+
+            var scope = FindScope(sandbox);
+            if (scope == null)
+            {
+                Debug.LogError("<b>Level Sandbox</b>: no SceneScope. Press Set Up Scene first.", sandbox);
+                continue;
+            }
+
+            if (!ResolveDataAssets(scope, out var assets)) continue;
+
+            var palette = ResolveFillPalette(scope, assets.Colors,
+                sandbox.CarriersRoot != null ? sandbox.CarriersRoot : carrier.transform);
+            if (palette.Count == 0)
+            {
+                Debug.LogError("<b>Level Sandbox</b>: no colors to fill with. Add entries to SceneScope's " +
+                               "Block Colors.", scope);
+                continue;
+            }
+
+            FillDefaultCarrier(carrier, assets, palette, new FillSizing(sandbox, assets));
+            LevelSandboxGenerator.ApplyCarrierHeadColor(carrier, assets.Colors);
+            EditorSceneManager.MarkSceneDirty(carrier.gameObject.scene);
+            refilled++;
+
+            Debug.Log($"<b>Level Sandbox</b>: refilled '{carrier.name}' to {carrier.GetDefaultFillGroupCount()} " +
+                      $"groups ({carrier.GroupBlocks.Count} Group Blocks slots). Colours are the scene view's " +
+                      "only — SceneScope rerolls them on Play.", carrier);
+        }
+
+        Undo.SetCurrentGroupName("Apply Default Group Count");
+        Undo.CollapseUndoOperations(undoGroup);
+
+        return refilled;
+    }
+
+    /// <summary>
+    /// A Default carrier's fill: the body is sized to exactly Default Group Count first (grown or
+    /// shrunk), then the blocks are refilled to that same count — the number GetMaxBlockCount holds
+    /// it to at run time.
+    /// </summary>
+    private static void FillDefaultCarrier(Carrier carrier, DataAssets assets, IReadOnlyList<ColorType> palette,
+        FillSizing fill)
+    {
+        var groupCount = carrier.GetDefaultFillGroupCount();
+        LevelSandboxGenerator.SetGroupBlockCount(carrier, groupCount);
+        LevelSandboxGenerator.FillCarrier(carrier, assets.Blocks, assets.Colors, palette,
+            fill.BlockSize, fill.GroupBlockCount, fill.ConfigSize, groupCount);
+    }
+
+    /// <summary>
+    /// The level's block sizing, worked out from the same stub defaults the generator runs with, so a
+    /// filled carrier matches a generated one.
+    /// </summary>
+    private readonly struct FillSizing
+    {
+        public readonly Vector3Int BlockSize;
+        public readonly int GroupBlockCount;
+        public readonly CarrierConfig.SizeArgs ConfigSize;
+
+        public FillSizing(LevelSandbox sandbox, DataAssets assets)
+        {
+            var physicsType = new BlockPhysicsConfig().Type;
+            var carrierBlockArgs = sandbox.CarrierBlockArgs;
+            BlockSize = LevelGeometry.GetBlockSize(carrierBlockArgs);
+            GroupBlockCount = LevelGeometry.GetGroupBlockCount(assets.CarrierConfig, physicsType, carrierBlockArgs);
+            ConfigSize = assets.CarrierConfig.Sizes[physicsType];
+        }
     }
 
     /// <summary>
@@ -672,16 +755,27 @@ public sealed class LevelSandboxEditor : Editor
         return false;
     }
 
-    private SceneScope FindScope()
+    private SceneScope FindScope() => FindScope(Sandbox);
+
+    private static SceneScope FindScope(LevelSandbox sandbox)
     {
-        var scope = Sandbox.GetComponent<SceneScope>();
+        var scope = sandbox.GetComponent<SceneScope>();
         if (scope != null) return scope;
 
-        var scene = Sandbox.gameObject.scene;
+        var scene = sandbox.gameObject.scene;
         if (!scene.IsValid()) return null;
 
         return scene.GetRootGameObjects()
             .Select(x => x.GetComponentInChildren<SceneScope>(true))
+            .FirstOrDefault(x => x != null);
+    }
+
+    public static LevelSandbox FindSandbox(UnityEngine.SceneManagement.Scene scene)
+    {
+        if (!scene.IsValid()) return null;
+
+        return scene.GetRootGameObjects()
+            .Select(x => x.GetComponentInChildren<LevelSandbox>(true))
             .FirstOrDefault(x => x != null);
     }
 }

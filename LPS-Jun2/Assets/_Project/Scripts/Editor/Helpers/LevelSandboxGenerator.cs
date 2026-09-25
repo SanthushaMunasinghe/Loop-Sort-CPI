@@ -372,12 +372,12 @@ public static class LevelSandboxGenerator
     }
 
     /// <summary>
-    /// Clears a carrier and refills it to groupCount colour groups (default 4, which matches the
-    /// level's own sizing exactly — this only ever generates more than the level's grid would when
-    /// groupCount is raised above 4). Callers pass the field for the carrier's own mode:
-    /// StartGroupCount for a Start carrier, GetDefaultFillGroupCount() for a Default one. Walks the palette
-    /// one entry per colour group so neighbouring groups differ whenever there is more than one
-    /// colour to draw on.
+    /// Clears a carrier and refills it to groupCount colour groups (4 matches the level's own sizing
+    /// exactly — this only ever generates more than the level's grid would when groupCount is above
+    /// 4). Callers pass the count for the carrier's own mode, already clamped to whatever floor that
+    /// mode has: Max(4, StartGroupCount) for a Start carrier, GetDefaultFillGroupCount() for a Default
+    /// one. Walks the palette one entry per colour group so neighbouring groups differ whenever there
+    /// is more than one colour to draw on.
     /// Colours here are only what the scene view shows — SceneScope rerolls them at run time.
     /// Returns how many blocks were placed.
     ///
@@ -402,8 +402,8 @@ public static class LevelSandboxGenerator
             return 0;
         }
 
-        // Defensive clamp — the inspector's Min(4) doesn't protect against a hand-edited scene value.
-        var startGroupCount = Mathf.Max(4, groupCount);
+        // Defensive clamp — the inspector's Min doesn't protect against a hand-edited scene value.
+        var startGroupCount = Mathf.Max(1, groupCount);
         EnsureGroupBlockCapacity(carrier, startGroupCount);
 
         ClearCarrierBlocks(carrier);
@@ -526,6 +526,62 @@ public static class LevelSandboxGenerator
         }
 
         EditorUtility.SetDirty(carrier);
+    }
+
+    /// <summary>
+    /// Makes carrier.GroupBlocks/GroupBlockFilters exactly desiredCount long, in either direction —
+    /// what a Default carrier's fill needs, since its Default Group Count can come back down after
+    /// being raised. Growing is EnsureGroupBlockCapacity. Shrinking deletes the slots it cloned in,
+    /// nearest the rear cap first; the prefab's own slots are never deleted (that would be a removed
+    /// prefab object override), so a count below the prefab's slot count keeps those and just leaves
+    /// the extra ones unfilled — BlockCarrierMeshSystem only shows a group mesh over a filled group.
+    /// Front cap stays at index 0, rear cap stays last, and every remaining slot is re-spaced from
+    /// index 0 by the same step EnsureGroupBlockCapacity lays them out with.
+    /// </summary>
+    public static void SetGroupBlockCount(Carrier carrier, int desiredCount)
+    {
+        EnsureGroupBlockCapacity(carrier, desiredCount);
+
+        var groupBlocks = carrier.GroupBlocks;
+        var groupBlockFilters = carrier.GroupBlockFilters;
+        if (groupBlocks.Count <= desiredCount || groupBlocks.Count < 2) return;
+
+        // Read before anything is removed: slot 1 is usually one of the clones about to go.
+        var delta = groupBlocks[1].transform.position - groupBlocks[0].transform.position;
+
+        Undo.RecordObject(carrier, "Apply Default Group Count");
+
+        var removed = false;
+        for (var i = groupBlocks.Count - 2; i >= 1 && groupBlocks.Count > desiredCount; i--)
+        {
+            var slot = groupBlocks[i] != null ? groupBlocks[i].gameObject : null;
+            if (slot != null && !IsClonedGroupBlock(slot)) continue;
+
+            groupBlocks.RemoveAt(i);
+            if (i < groupBlockFilters.Count) groupBlockFilters.RemoveAt(i);
+            if (slot != null) Undo.DestroyObjectImmediate(slot);
+            removed = true;
+        }
+
+        if (!removed) return;
+
+        for (var i = 0; i < groupBlocks.Count; i++)
+        {
+            Undo.RecordObject(groupBlocks[i].transform, "Apply Default Group Count");
+            groupBlocks[i].transform.position = groupBlocks[0].transform.position + delta * i;
+        }
+
+        EditorUtility.SetDirty(carrier);
+    }
+
+    /// <summary>
+    /// A Group Blocks slot EnsureGroupBlockCapacity cloned in, as opposed to one the carrier prefab
+    /// ships with. The clones are plain scene objects parented into the prefab instance, which Unity
+    /// records as added GameObject overrides.
+    /// </summary>
+    private static bool IsClonedGroupBlock(GameObject slot)
+    {
+        return !PrefabUtility.IsPartOfPrefabInstance(slot) || PrefabUtility.IsAddedGameObjectOverride(slot);
     }
 
     /// <summary>
