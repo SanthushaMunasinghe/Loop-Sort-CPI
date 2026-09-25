@@ -12,20 +12,21 @@ using UnityEngine.Pool;
 [RequireComponent(typeof(Block))]
 public sealed class GroceryItem : MonoBehaviour
 {
+    /// <summary>Child of a cart's Block Parent holding the Level Sandbox's editor-only preview items.
+    /// SceneScope.FillShoppingCarts removes it before filling the cart for real.</summary>
+    public const string PreviewContainerName = "Grocery Preview";
+
     private const int MatchKeyOffset = 1000;
 
-    [Tooltip("Parent the type's model is spawned under. Takes the entry's Spawn Scale.")]
+    [Tooltip("Parent the type's model is spawned under. Takes the entry's Spawn Position/Rotation/Scale.")]
     [SerializeField] private Transform _modelRoot;
 
     public int Type { get; private set; } = -1;
 
-    private Block _block;
     private GameObject _model;
 
     private void Awake()
     {
-        _block = GetComponent<Block>();
-
         // The mesh systems keep swapping the Block's cube mesh and flipping its renderer on, so hide it
         // in a way none of them touch.
         if (TryGetComponent<MeshRenderer>(out var meshRenderer))
@@ -35,25 +36,35 @@ public sealed class GroceryItem : MonoBehaviour
     public void SetType(int type, GroceryModel entry)
     {
         Type = type;
-        _block.OverrideColorType(ToMatchKey(type));
+        GetComponent<Block>().OverrideColorType(ToMatchKey(type));
 
         if (_model != null) Destroy(_model);
-        _model = null;
+        _model = ApplyModel(_modelRoot != null ? _modelRoot : transform, entry);
+    }
 
-        var modelRoot = _modelRoot != null ? _modelRoot : transform;
+    /// <summary>
+    /// Poses modelRoot with the entry's Spawn Position/Rotation/Scale and spawns its model under it,
+    /// colliders off. Shared with the Level Sandbox's editor preview so both look the same.
+    /// </summary>
+    public static GameObject ApplyModel(Transform modelRoot, GroceryModel entry)
+    {
+        modelRoot.localPosition = entry.SpawnPosition;
+        modelRoot.localRotation = Quaternion.Euler(entry.SpawnRotation);
         modelRoot.localScale = entry.SpawnScale;
 
-        if (entry.Model == null) return;
+        if (entry.Model == null) return null;
 
-        _model = Instantiate(entry.Model, modelRoot, false);
-        _model.transform.localPosition = Vector3.zero;
-        _model.transform.localRotation = Quaternion.identity;
+        var model = Instantiate(entry.Model, modelRoot, false);
+        model.transform.localPosition = Vector3.zero;
+        model.transform.localRotation = Quaternion.identity;
 
         // A model's own colliders would compound into the Block's Rigidbody and catch clicks.
         using var p = ListPool<Collider>.Get(out var colliders);
-        _model.GetComponentsInChildren(true, colliders);
+        model.GetComponentsInChildren(true, colliders);
         foreach (var modelCollider in colliders)
             modelCollider.enabled = false;
+
+        return model;
     }
 
     public static ColorType ToMatchKey(int type)

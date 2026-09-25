@@ -109,6 +109,11 @@ public sealed class SceneScope : LifetimeScope
              "Model are left out of the random draw.")]
     [SerializeField] private List<GroceryModel> _groceryModels = new();
 
+    [Tooltip("Gap between neighbouring Grocery Items in a cart, per axis in the cart's Block Parent " +
+             "space: x across, y up, z from group to group. Items start at Block Parent's origin, so move " +
+             "Block Parent in the Shopping Cart prefab to shift the whole stack.")]
+    [SerializeField] private Vector3 _groceryItemSpacing = new(.4f, .4f, .4f);
+
     // Self-registered by each EmptyCarrierRowExit in its own Awake — not hand-populated, so this
     // stays correct across however many rows the Level Sandbox generates without any manual wiring.
     private readonly List<EmptyCarrierRowExit> _emptyCarrierRowExits = new();
@@ -204,6 +209,7 @@ public sealed class SceneScope : LifetimeScope
     public bool UseShoppingCarts => _useShoppingCarts;
     public IReadOnlyList<Carrier> ShoppingCarts => _shoppingCarts;
     public IReadOnlyList<GroceryModel> GroceryModels => _groceryModels;
+    public Vector3 GroceryItemSpacing => _groceryItemSpacing;
 
     /// <summary>Default carriers and shopping carts both feed themselves through their own triggers, so
     /// the Empty carrier machinery (rows, the global trigger) has nothing to do in either.</summary>
@@ -747,27 +753,27 @@ public sealed class SceneScope : LifetimeScope
     }
 
     /// <summary>
-    /// Fills every Shopping Cart with Grocery Items, at run time only — called by LevelSandbox right
-    /// after it adopts the authored blocks, so the carts' own Awake has run and the conveyor already
-    /// knows its group size.
-    ///
-    /// Each cart gets Default Group Count groups of the conveyor's Group Block Count items, stacked the
-    /// same way AddBlock lays out any carrier's blocks, and each group draws one random grocery type.
-    /// The cart's Max Consecutive Same Color Groups caps same-type runs, and Prevent Single Color
-    /// Carriers rerolls a cart that came out all one type — both exactly as for coloured blocks.
+    /// Where a cart's item at this index sits in its Block Parent: the carrier's usual grid walk (x
+    /// across, y up snaking, z one layer per x*y items) times Grocery Item Spacing, starting at Block
+    /// Parent's origin. z keeps growing past the level's own grid, so a cart can hold any number of
+    /// groups. Static so the Level Sandbox's edit-mode preview lands items on the same spots.
     /// </summary>
-    public void FillShoppingCarts()
+    public static Vector3 GetGroceryItemLocalPosition(int index, Vector3Int blockSize, Vector3 spacing)
     {
-        if (!_useShoppingCarts) return;
+        return Vector3.Scale(Carrier.IndexToCoordinate(index, blockSize), spacing);
+    }
 
-        if (_groceryItemPrefab == null)
-        {
-            Debug.LogWarning($"<b>{nameof(SceneScope)}</b>: Use Shopping Carts is on but no Grocery Item " +
-                             "Prefab is assigned. Carts are left empty.", this);
-            return;
-        }
-
-        // Match key -> Grocery Models index, for every entry that actually has a model.
+    /// <summary>
+    /// One random grocery type (a Grocery Models index) per group of this cart — Default Group Count
+    /// groups. The cart's Max Consecutive Same Color Groups caps same-type runs, and Prevent Single
+    /// Color Carriers rerolls a cart that came out all one type, both exactly as for coloured blocks.
+    /// Entries with no Model are never drawn. Null when there is nothing to draw from.
+    ///
+    /// Shared by FillShoppingCarts and the Level Sandbox's preview, so every press of the preview
+    /// button — and every Play — rolls a fresh stack the same way.
+    /// </summary>
+    public List<int> DrawShoppingCartTypes(Carrier cart)
+    {
         var typeByKey = new Dictionary<ColorType, int>();
         var palette = new List<ColorType>();
         for (var i = 0; i < _groceryModels.Count; i++)
@@ -778,10 +784,37 @@ public sealed class SceneScope : LifetimeScope
             palette.Add(key);
         }
 
-        if (palette.Count == 0)
+        if (palette.Count == 0) return null;
+
+        var keys = DrawWithConsecutiveCap(cart.GetDefaultFillGroupCount(), palette, cart.MaxConsecutiveSameColorGroups);
+        if (_preventSingleColorCarriers) BreakSingleType(keys, palette);
+
+        return keys.Select(k => typeByKey[k]).ToList();
+    }
+
+    /// <summary>
+    /// Fills every Shopping Cart with Grocery Items, at run time only — called by LevelSandbox right
+    /// after it adopts the authored blocks, so the carts' own Awake has run and the conveyor already
+    /// knows its group size. Each group is the conveyor's Group Block Count items of one type drawn by
+    /// DrawShoppingCartTypes, laid out by GetGroceryItemLocalPosition (through Carrier.AddBlock).
+    ///
+    /// Any editor preview left in a cart is thrown away first — the real stack is always re-rolled.
+    /// </summary>
+    public void FillShoppingCarts()
+    {
+        if (!_useShoppingCarts) return;
+
+        foreach (var cart in _shoppingCarts)
         {
-            Debug.LogWarning($"<b>{nameof(SceneScope)}</b>: Use Shopping Carts is on but Grocery Models " +
-                             "has no entry with a Model. Carts are left empty.", this);
+            if (cart == null || cart.BlockParent == null) continue;
+            var preview = cart.BlockParent.Find(GroceryItem.PreviewContainerName);
+            if (preview != null) Destroy(preview.gameObject);
+        }
+
+        if (_groceryItemPrefab == null)
+        {
+            Debug.LogWarning($"<b>{nameof(SceneScope)}</b>: Use Shopping Carts is on but no Grocery Item " +
+                             "Prefab is assigned. Carts are left empty.", this);
             return;
         }
 
@@ -798,13 +831,16 @@ public sealed class SceneScope : LifetimeScope
         {
             if (cart == null || !cart.gameObject.activeInHierarchy) continue;
 
-            var groupCount = cart.GetDefaultFillGroupCount();
-            var keys = DrawWithConsecutiveCap(groupCount, palette, cart.MaxConsecutiveSameColorGroups);
-            if (_preventSingleColorCarriers) BreakSingleType(keys, palette);
-
-            foreach (var key in keys)
+            var types = DrawShoppingCartTypes(cart);
+            if (types == null)
             {
-                var type = typeByKey[key];
+                Debug.LogWarning($"<b>{nameof(SceneScope)}</b>: Use Shopping Carts is on but Grocery Models " +
+                                 "has no entry with a Model. Carts are left empty.", this);
+                return;
+            }
+
+            foreach (var type in types)
+            {
                 for (var i = 0; i < itemsPerGroup; i++)
                 {
                     var item = Instantiate(_groceryItemPrefab, cart.BlockParent);
@@ -813,7 +849,7 @@ public sealed class SceneScope : LifetimeScope
                 }
             }
 
-            log.Add($"{cart.name} [{string.Join(", ", keys.Select(k => _groceryModels[typeByKey[k]].Name))}]");
+            log.Add($"{cart.name} [{string.Join(", ", types.Select(t => _groceryModels[t].Name))}]");
         }
 
         if (log.Count > 0)

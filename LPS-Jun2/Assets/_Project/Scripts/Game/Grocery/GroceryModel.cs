@@ -14,7 +14,15 @@ public sealed class GroceryModel
     [Tooltip("Model spawned under the Grocery Item's Model Root. Its colliders are switched off.")]
     public GameObject Model;
 
-    [Tooltip("Local scale of the Grocery Item's Model Root while it holds this model. The item's own " +
-             "root scale is still driven by the carrier/conveyor on top of this.")]
+    [Tooltip("Local position of the Grocery Item's Model Root while it holds this model — nudges the " +
+             "model within its grid cell.")]
+    public Vector3 SpawnPosition = Vector3.zero;
+
+    [Tooltip("Local rotation (euler angles) of the Grocery Item's Model Root while it holds this model.")]
+    public Vector3 SpawnRotation = Vector3.zero;
+
+    [Tooltip("Local scale of the Grocery Item's Model Root while it holds this model. In a cart the " +
+             "item's own root stays at scale 1, so this is the size it shows at there; the conveyor " +
+             "still scales the root on the belt.")]
     public Vector3 SpawnScale = Vector3.one;
 }

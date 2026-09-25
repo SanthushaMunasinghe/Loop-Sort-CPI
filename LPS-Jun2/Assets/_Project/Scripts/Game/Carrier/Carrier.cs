@@ -156,6 +156,7 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
     [Inject] private ISubscriber<BlockTransferCompleteMessage> _blockTransferCompleteSub;
 
     private Material _originalMaterial;
+    private Vector3 _originalHeadScale = Vector3.one;
     private BlockPhysicsConfig _blockPhysicsConfig;
     private SoundConfig _soundConfig;
 
@@ -182,6 +183,7 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
         base.Awake();
 
         _originalMaterial = HeadRenderer.sharedMaterials[0];
+        _originalHeadScale = HeadRenderer.transform.localScale;
         GetComponentsInChildren(_transferHandlers);
         IsShoppingCart = TryGetComponent<ShoppingCart>(out _);
     }
@@ -440,8 +442,10 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
         var targetPosition = localPosition;
         var targetRotation = Quaternion.identity;
 
+        // A cart keeps its Grocery Items at unit scale, so each model's Spawn Scale is exactly what shows
+        // in the cart — and what the Level Sandbox's editor preview shows.
         var configSize = _carrierConfig.Sizes[_blockPhysicsConfig.Type];
-        blockT.localScale = Vector3.one * configSize.ScaleMultiplier;
+        blockT.localScale = IsShoppingCart ? Vector3.one : Vector3.one * configSize.ScaleMultiplier;
 
         block.MeshFilter.sharedMesh = _blockConfig.BeveledMesh;
         if (motion)
@@ -641,14 +645,24 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
 
     public Vector3Int GetBlockCoordinate(int index)
     {
+        return IndexToCoordinate(index, _conveyor.BlockSize);
+    }
+
+    /// <summary>
+    /// The grid cell a carrier's block index sits in: x across, y up (snaking back on odd rows), z one
+    /// layer per x*y blocks. Static so the Level Sandbox's shopping cart preview can lay items out in
+    /// edit mode exactly the way a cart does at run time.
+    /// </summary>
+    public static Vector3Int IndexToCoordinate(int index, Vector3Int blockSize)
+    {
         var coordinate = Vector3Int.zero;
-        var idx = index % (_conveyor.BlockSize.x * _conveyor.BlockSize.y);
-        coordinate.x = idx % _conveyor.BlockSize.x;
-        coordinate.y = idx / _conveyor.BlockSize.x;
-        coordinate.z = index / (_conveyor.BlockSize.x * _conveyor.BlockSize.y);
+        var idx = index % (blockSize.x * blockSize.y);
+        coordinate.x = idx % blockSize.x;
+        coordinate.y = idx / blockSize.x;
+        coordinate.z = index / (blockSize.x * blockSize.y);
 
         if (coordinate.y % 2 != 0)
-            coordinate.x = _conveyor.BlockSize.x - 1 - idx % _conveyor.BlockSize.x;
+            coordinate.x = blockSize.x - 1 - idx % blockSize.x;
 
         return coordinate;
     }
@@ -693,6 +707,11 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
     /// </summary>
     public Vector3 GetBlockLocalPosition(int index)
     {
+        // Carts lay Grocery Items out on SceneScope's own spacing, and the grid simply keeps going in z
+        // for however many groups the cart holds.
+        if (IsShoppingCart)
+            return SceneScope.GetGroceryItemLocalPosition(index, _conveyor.BlockSize, _sceneScope.GroceryItemSpacing);
+
         var baseBlockCount = _conveyor.MaxBlockCount;
         var groupBlockCount = _conveyor.GroupBlockCount;
 

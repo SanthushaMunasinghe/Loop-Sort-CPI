@@ -161,7 +161,9 @@ public partial class Carrier
         if (_isTransferMotionDisabled) return;
         _transferMotions.Cancel();
 
-        HeadRenderer.transform.localScale = Vector3.one;
+        // Back to the head's own authored scale — not Vector3.one, which squashed any head model (the
+        // shopping cart's) that isn't authored at unit scale.
+        HeadRenderer.transform.localScale = _originalHeadScale;
 
         var t = transform;
         var from = t.position;

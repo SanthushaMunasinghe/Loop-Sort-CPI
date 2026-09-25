@@ -34,6 +34,8 @@ public sealed class LevelSandboxEditor : Editor
         EditorGUILayout.Space(10);
         DrawGenerateButtons();
         EditorGUILayout.Space(10);
+        DrawShoppingCartPreview();
+        EditorGUILayout.Space(10);
         DrawEmptyCarrierRows();
     }
 
@@ -170,6 +172,106 @@ public sealed class LevelSandboxEditor : Editor
         EditorSceneManager.MarkSceneDirty(scene);
     }
 
+    // ------------------------------------------------------- shopping carts
+
+    private void DrawShoppingCartPreview()
+    {
+        EditorGUILayout.LabelField("Shopping Carts", EditorStyles.boldLabel);
+
+        var scope = FindScope();
+        var canPreview = scope != null && scope.UseShoppingCarts;
+
+        using (new EditorGUI.DisabledScope(EditorApplication.isPlayingOrWillChangePlaymode || !canPreview))
+        {
+            if (GUILayout.Button("Preview Grocery Items", GUILayout.Height(28)))
+                PreviewGroceryItems(scope);
+
+            if (GUILayout.Button("Clear Grocery Preview"))
+                ClearGroceryPreview(scope, "Clear Grocery Preview");
+        }
+
+        EditorGUILayout.HelpBox(canPreview
+                ? "Preview rolls a new random stack into every Shopping Cart each press — editor only. " +
+                  "Play always rolls its own stack and throws the preview away."
+                : "Turn on SceneScope's Use Shopping Carts to preview grocery items.",
+            MessageType.Info);
+    }
+
+    /// <summary>
+    /// Fills every SceneScope Shopping Cart with a freshly rolled stack of model-only stand-ins — same
+    /// draw (SceneScope.DrawShoppingCartTypes), same spots (SceneScope.GetGroceryItemLocalPosition) and
+    /// same Spawn Position/Rotation/Scale (GroceryItem.ApplyModel) as run time, but no Block or
+    /// GroceryItem on them, so nothing at run time can mistake them for real items. They sit under a
+    /// Grocery Preview container tagged EditorOnly (never in a build), which SceneScope.FillShoppingCarts
+    /// throws away on Play.
+    /// </summary>
+    private void PreviewGroceryItems(SceneScope scope)
+    {
+        if (!ResolveDataAssets(scope, out var assets)) return;
+
+        var undoGroup = Undo.GetCurrentGroup();
+        ClearGroceryPreview(scope, null);
+
+        var fill = new FillSizing(Sandbox, assets);
+        var previewed = 0;
+
+        foreach (var cart in scope.ShoppingCarts)
+        {
+            if (cart == null || cart.BlockParent == null || !cart.gameObject.activeInHierarchy) continue;
+
+            var types = scope.DrawShoppingCartTypes(cart);
+            if (types == null)
+            {
+                Debug.LogError("<b>Level Sandbox</b>: SceneScope's Grocery Models has no entry with a Model " +
+                               "to preview.", scope);
+                break;
+            }
+
+            var container = new GameObject(GroceryItem.PreviewContainerName) { tag = "EditorOnly" };
+            Undo.RegisterCreatedObjectUndo(container, "Preview Grocery Items");
+            container.transform.SetParent(cart.BlockParent, false);
+
+            var index = 0;
+            foreach (var type in types)
+            {
+                var entry = scope.GroceryModels[type];
+                for (var i = 0; i < fill.GroupBlockCount; i++, index++)
+                {
+                    var item = new GameObject($"{entry.Name} {index}").transform;
+                    item.SetParent(container.transform, false);
+                    item.localPosition = SceneScope.GetGroceryItemLocalPosition(index, fill.BlockSize,
+                        scope.GroceryItemSpacing);
+
+                    var modelRoot = new GameObject("Model Root").transform;
+                    modelRoot.SetParent(item, false);
+                    GroceryItem.ApplyModel(modelRoot, entry);
+                }
+            }
+
+            previewed++;
+        }
+
+        Undo.SetCurrentGroupName("Preview Grocery Items");
+        Undo.CollapseUndoOperations(undoGroup);
+        EditorSceneManager.MarkSceneDirty(Sandbox.gameObject.scene);
+        Debug.Log($"<b>Level Sandbox</b>: previewed grocery items in {previewed} shopping cart(s).", scope);
+    }
+
+    private static void ClearGroceryPreview(SceneScope scope, string undoName)
+    {
+        foreach (var cart in scope.ShoppingCarts)
+        {
+            if (cart == null || cart.BlockParent == null) continue;
+
+            Transform preview;
+            while ((preview = cart.BlockParent.Find(GroceryItem.PreviewContainerName)) != null)
+                Undo.DestroyObjectImmediate(preview.gameObject);
+        }
+
+        if (undoName != null) Undo.SetCurrentGroupName(undoName);
+        EditorSceneManager.MarkSceneDirty(scope.gameObject.scene);
+    }
+
     // --------------------------------------------------------------- generate
 
     private void DrawGenerateButtons()
@@ -300,6 +402,9 @@ public sealed class LevelSandboxEditor : Editor
 
         foreach (var carrier in carriersRoot.GetComponentsInChildren<Carrier>(true))
         {
+            // Carts hold Grocery Items spawned at run time, never cube blocks.
+            if (carrier.GetComponent<ShoppingCart>() != null) continue;
+
             switch (carrier.Mode)
             {
                 case CarrierMode.Start:
