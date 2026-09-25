@@ -1,6 +1,7 @@
 {
   "dependencies": {
     "com.acegikmo.mathfs": "https://github.com/FreyaHolmer/Mathfs.git#aaffa04ac0599a839edc6c45f9099460f9d950e8",
+    "com.anklebreaker.unity-mcp": "https://github.com/AnkleBreaker-Studio/unity-mcp-plugin.git",
     "com.annulusgames.lit-motion": "https://github.com/AnnulusGames/LitMotion.git?path=src/LitMotion/Assets/LitMotion#v2.0.1",
     "com.annulusgames.lit-motion.animation": "https://github.com/annulusgames/LitMotion.git?path=src/LitMotion/Assets/LitMotion.Animation",
     "com.annulusgames.u-pools": "https://github.com/AnnulusGames/uPools.git?path=/Assets/uPools#v1.0.1",

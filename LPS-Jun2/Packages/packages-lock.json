@@ -7,6 +7,13 @@
       "dependencies": {},
       "hash": "aaffa04ac0599a839edc6c45f9099460f9d950e8"
     },
+    "com.anklebreaker.unity-mcp": {
+      "version": "https://github.com/AnkleBreaker-Studio/unity-mcp-plugin.git",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {},
+      "hash": "0b8e76f7c50ed8c0bd5f359d893653211d0f2abe"
+    },
     "com.annulusgames.lit-motion": {
       "version": "https://github.com/AnnulusGames/LitMotion.git?path=src/LitMotion/Assets/LitMotion#v2.0.1",
       "depth": 0,
