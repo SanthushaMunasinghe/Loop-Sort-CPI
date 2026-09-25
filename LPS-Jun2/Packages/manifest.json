@@ -24,6 +24,7 @@
     "com.unity.ide.rider": "3.0.39",
     "com.unity.memoryprofiler": "1.1.12",
     "com.unity.nuget.newtonsoft-json": "3.2.2",
+    "com.unity.postprocessing": "3.5.4",
     "com.unity.recorder": "5.1.5",
     "com.unity.ugui": "2.0.0",
     "com.unityfx.outline": "https://github.com/batuhandrsn/UnityFx.Outline.git?path=Outline.Core/Packages/UnityFx.Outline",
