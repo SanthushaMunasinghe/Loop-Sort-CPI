@@ -113,8 +113,7 @@ public sealed class BlockTriggerSystem : SystemBase, IFixedSystem
 
         foreach (var groceryTrigger in triggers)
         {
-            var cart = groceryTrigger.Cart;
-            if (cart == null)
+            if (groceryTrigger.Cart == null)
             {
                 Debug.LogWarning($"[{nameof(BlockTriggerSystem)}] Grocery trigger '{groceryTrigger.name}' " +
                                  "has no Cart assigned.", groceryTrigger);
@@ -125,6 +124,10 @@ public sealed class BlockTriggerSystem : SystemBase, IFixedSystem
 
             blockTrigger.AddListener(block =>
             {
+                // Read live, not captured at bind time: ShoppingCartExit hands the trigger over to the
+                // cart it respawns once the old one completes.
+                var cart = groceryTrigger.Cart;
+                if (cart == null) return;
                 if (!block.TryGetComponent<GroceryItem>(out _)) return;
                 var conveyorSlot = block.Container as ConveyorSlot;
                 if (conveyorSlot == null) return;

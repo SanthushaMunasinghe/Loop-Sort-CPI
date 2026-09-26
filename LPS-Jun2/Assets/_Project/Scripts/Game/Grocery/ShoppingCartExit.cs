@@ -12,6 +12,9 @@ using VContainer;
 /// path to whichever despawn point is closer over Leave Duration — and just parks there, out of
 /// view. Nothing is disabled or returned to a pool.
 ///
+/// The moment it finishes reversing, a fresh cart pops up in its seat (see RespawnCart) and takes
+/// over its place in play, so the row is never short a cart.
+///
 /// Hooks CarrierBackClosedMessage, same as EmptyCarrierRowExit. A cart has no lid renderers, so
 /// Carrier.ApplyCloseBackMotion returns at once and that message lands the same frame as the
 /// checkmark.
@@ -61,16 +64,66 @@ public sealed class ShoppingCartExit : GameBehaviourBase
     [Min(0.01f)]
     [SerializeField] private float _turnRate = 2.5f;
 
+    [Header("Respawn")]
+    [Tooltip("Spawned in a completed cart's seat the moment it finishes reversing, filled with a new " +
+             "random stack and handed that cart's Grocery Trigger.")]
+    [SerializeField] private Carrier _cartPrefab;
+
+    [Tooltip("Seconds the respawned cart takes to scale up from nothing to the seat's cached scale. " +
+             "It can't be tapped or take items in until this finishes.")]
+    [Min(0.01f)]
+    [SerializeField] private float _respawnScaleDuration = .35f;
+
+    // Not quite zero: a zero-scale parent can't take the Grocery Items' reparenting, and PhysX rejects a
+    // zero-size BoxCollider.
+    private const float RespawnStartScale = .001f;
+
     [Inject] private SceneScope _sceneScope;
     [Inject] private ISubscriber<CarrierBackClosedMessage> _carrierBackClosedSub;
 
     private readonly HashSet<Carrier> _exiting = new();
+    private readonly Dictionary<Carrier, Seat> _seats = new();
+    private GroceryTrigger[] _groceryTriggers;
+
+    /// <summary>Where a cart sat and how big it was when the level started — what its respawn takes on.</summary>
+    private struct Seat
+    {
+        public Transform Parent;
+        public int SiblingIndex;
+        public Vector3 Position;
+        public Quaternion Rotation;
+        public Vector3 LocalScale;
+    }
 
     protected override void BuildMessages(DisposableBagBuilder bag)
     {
         base.BuildMessages(bag);
 
         _carrierBackClosedSub.Subscribe(OnCarrierBackClosed).AddTo(bag);
+    }
+
+    // Start, not Awake: every cart is placed by then, and nothing has had a chance to complete (and
+    // start moving) yet. The seats are cached here once so a respawn never inherits wherever a cart
+    // happened to be — or how it was scaled — mid-motion.
+    protected override void Start()
+    {
+        base.Start();
+
+        _groceryTriggers = FindObjectsByType<GroceryTrigger>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+
+        foreach (var cart in _sceneScope.ShoppingCarts)
+        {
+            if (cart == null) continue;
+            var t = cart.transform;
+            _seats[cart] = new Seat
+            {
+                Parent = t.parent,
+                SiblingIndex = t.GetSiblingIndex(),
+                Position = t.position,
+                Rotation = t.rotation,
+                LocalScale = t.localScale,
+            };
+        }
     }
 
     private void OnCarrierBackClosed(CarrierBackClosedMessage m)
@@ -106,6 +159,10 @@ public sealed class ShoppingCartExit : GameBehaviourBase
             .BindToPosition(cartT)
             .AddTo(this)
             .ToUniTask(ReturnToken);
+
+        // The seat is clear now — the old cart has backed a full length out of the row.
+        if (_seats.TryGetValue(cart, out var seat))
+            RespawnCart(cart, seat).Forget();
 
         using var pooled = UnityEngine.Pool.ListPool<Vector3>.Get(out var controlPoints);
         controlPoints.Add(Flatten(reverseEnd));
@@ -145,6 +202,52 @@ public sealed class ShoppingCartExit : GameBehaviourBase
             })
             .AddTo(this)
             .ToUniTask(ReturnToken);
+    }
+
+    /// <summary>
+    /// Spawns a fresh cart in oldCart's seat, fills it with a new random stack at full size (the Grocery
+    /// Items are laid out in its Block Parent's frame, so filling first keeps them exact), then pops it
+    /// up from nothing to the seat's cached scale. It takes oldCart's place in Scene Scope's Shopping
+    /// Carts and its Grocery Trigger straight away, but stays locked — no taps, no items in — until the
+    /// scale-up finishes.
+    /// </summary>
+    private async UniTaskVoid RespawnCart(Carrier oldCart, Seat seat)
+    {
+        if (_cartPrefab == null)
+        {
+            Debug.LogWarning($"<b>{nameof(ShoppingCartExit)}</b>: {name} has no Cart Prefab assigned, so " +
+                             $"{oldCart.name}'s seat stays empty.", this);
+            return;
+        }
+
+        var newCart = Instantiate(_cartPrefab, seat.Position, seat.Rotation, seat.Parent);
+        var newCartT = newCart.transform;
+        newCartT.localScale = seat.LocalScale;
+        newCartT.SetSiblingIndex(seat.SiblingIndex);
+        newCart.name = oldCart.name;
+        oldCart.name += " (Exited)";
+
+        newCart.DisableInteraction(gameObject);
+        newCart.DisableTransfer(gameObject);
+
+        _sceneScope.FillShoppingCart(newCart);
+        _sceneScope.ReplaceShoppingCart(oldCart, newCart);
+        foreach (var trigger in _groceryTriggers)
+            if (trigger != null && trigger.Cart == oldCart) trigger.SetCart(newCart);
+
+        _seats.Remove(oldCart);
+        _seats[newCart] = seat;
+
+        var startScale = seat.LocalScale * RespawnStartScale;
+        newCartT.localScale = startScale;
+        await LMotion.Create(startScale, seat.LocalScale, _respawnScaleDuration)
+            .WithEase(Ease.OutBack)
+            .BindToLocalScale(newCartT)
+            .AddTo(this)
+            .ToUniTask(ReturnToken);
+
+        newCart.EnableTransfer(gameObject);
+        newCart.EnableInteraction(gameObject);
     }
 
     private bool TryPickSide(Vector3 from, out Transform despawnPoint, out List<Transform> waypoints)

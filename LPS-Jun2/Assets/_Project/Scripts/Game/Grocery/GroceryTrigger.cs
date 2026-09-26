@@ -12,7 +12,7 @@ public sealed class GroceryTrigger : MonoBehaviour
 
     public Carrier Cart => _cart;
 
-#if UNITY_EDITOR
+    /// <summary>Editor wiring, and ShoppingCartExit handing the trigger to the cart it respawns in a
+    /// completed one's seat. BlockTriggerSystem reads Cart on every pickup, so this takes effect at once.</summary>
     public void SetCart(Carrier cart) => _cart = cart;
-#endif
 }

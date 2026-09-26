@@ -805,55 +805,104 @@ public sealed class SceneScope : LifetimeScope
         if (!_useShoppingCarts) return;
 
         foreach (var cart in _shoppingCarts)
-        {
-            if (cart == null || cart.BlockParent == null) continue;
-            var preview = cart.BlockParent.Find(GroceryItem.PreviewContainerName);
-            if (preview != null) Destroy(preview.gameObject);
-        }
+            RemoveGroceryPreview(cart);
 
-        if (_groceryItemPrefab == null)
-        {
-            Debug.LogWarning($"<b>{nameof(SceneScope)}</b>: Use Shopping Carts is on but no Grocery Item " +
-                             "Prefab is assigned. Carts are left empty.", this);
-            return;
-        }
-
-        var itemsPerGroup = _conveyor != null ? _conveyor.GroupBlockCount : 0;
-        if (itemsPerGroup <= 0)
-        {
-            Debug.LogWarning($"<b>{nameof(SceneScope)}</b>: conveyor has no Group Block Count. Carts are " +
-                             "left empty.", this);
-            return;
-        }
+        if (!CanFillShoppingCarts(out var itemsPerGroup)) return;
 
         using var p = ListPool<string>.Get(out var log);
         foreach (var cart in _shoppingCarts)
         {
             if (cart == null || !cart.gameObject.activeInHierarchy) continue;
 
-            var types = DrawShoppingCartTypes(cart);
-            if (types == null)
-            {
-                Debug.LogWarning($"<b>{nameof(SceneScope)}</b>: Use Shopping Carts is on but Grocery Models " +
-                                 "has no entry with a Model. Carts are left empty.", this);
-                return;
-            }
-
-            foreach (var type in types)
-            {
-                for (var i = 0; i < itemsPerGroup; i++)
-                {
-                    var item = Instantiate(_groceryItemPrefab, cart.BlockParent);
-                    item.SetType(type, _groceryModels[type]);
-                    cart.AddBlock(item.GetComponent<Block>(), motion: false).Forget();
-                }
-            }
+            var types = FillShoppingCartItems(cart, itemsPerGroup);
+            if (types == null) return;
 
             log.Add($"{cart.name} [{string.Join(", ", types.Select(t => _groceryModels[t].Name))}]");
         }
 
         if (log.Count > 0)
             Debug.Log($"<b>{nameof(SceneScope)}</b>: shopping carts — {string.Join("; ", log)}.", this);
+    }
+
+    /// <summary>
+    /// Fills one freshly spawned cart with a new random stack, exactly the way FillShoppingCarts does
+    /// at level start — see ShoppingCartExit, which respawns a cart in a completed one's seat.
+    /// </summary>
+    public void FillShoppingCart(Carrier cart)
+    {
+        if (cart == null || cart.BlockParent == null) return;
+
+        RemoveGroceryPreview(cart);
+        if (!CanFillShoppingCarts(out var itemsPerGroup)) return;
+
+        var types = FillShoppingCartItems(cart, itemsPerGroup);
+        if (types == null) return;
+
+        Debug.Log($"<b>{nameof(SceneScope)}</b>: respawned {cart.name} " +
+                  $"[{string.Join(", ", types.Select(t => _groceryModels[t].Name))}].", this);
+    }
+
+    /// <summary>
+    /// Puts newCart in oldCart's slot in Shopping Carts, so every IsRegisteredCarrier / AllCarriers
+    /// reader switches over to it and the completed oldCart drops out of play.
+    /// </summary>
+    public void ReplaceShoppingCart(Carrier oldCart, Carrier newCart)
+    {
+        var index = _shoppingCarts.IndexOf(oldCart);
+        if (index >= 0) _shoppingCarts[index] = newCart;
+        else _shoppingCarts.Add(newCart);
+    }
+
+    private static void RemoveGroceryPreview(Carrier cart)
+    {
+        if (cart == null || cart.BlockParent == null) return;
+        var preview = cart.BlockParent.Find(GroceryItem.PreviewContainerName);
+        if (preview != null) Destroy(preview.gameObject);
+    }
+
+    private bool CanFillShoppingCarts(out int itemsPerGroup)
+    {
+        itemsPerGroup = _conveyor != null ? _conveyor.GroupBlockCount : 0;
+
+        if (_groceryItemPrefab == null)
+        {
+            Debug.LogWarning($"<b>{nameof(SceneScope)}</b>: Use Shopping Carts is on but no Grocery Item " +
+                             "Prefab is assigned. Carts are left empty.", this);
+            return false;
+        }
+
+        if (itemsPerGroup <= 0)
+        {
+            Debug.LogWarning($"<b>{nameof(SceneScope)}</b>: conveyor has no Group Block Count. Carts are " +
+                             "left empty.", this);
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>The drawn types, one per group — or null, with a warning, when there's nothing to draw.</summary>
+    private List<int> FillShoppingCartItems(Carrier cart, int itemsPerGroup)
+    {
+        var types = DrawShoppingCartTypes(cart);
+        if (types == null)
+        {
+            Debug.LogWarning($"<b>{nameof(SceneScope)}</b>: Use Shopping Carts is on but Grocery Models " +
+                             "has no entry with a Model. Carts are left empty.", this);
+            return null;
+        }
+
+        foreach (var type in types)
+        {
+            for (var i = 0; i < itemsPerGroup; i++)
+            {
+                var item = Instantiate(_groceryItemPrefab, cart.BlockParent);
+                item.SetType(type, _groceryModels[type]);
+                cart.AddBlock(item.GetComponent<Block>(), motion: false).Forget();
+            }
+        }
+
+        return types;
     }
 
     /// <summary>Same walk-on reroll ApplyRandomCarrierColors uses for Prevent Single Color Carriers.</summary>
