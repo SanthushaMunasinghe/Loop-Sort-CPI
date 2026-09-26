@@ -197,6 +197,7 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
         if (IsSink()) ApplyTruckColor();
         ApplyOpenBackMotion(immediate: true);
         View.GetImage(ImageRole.Checkmark).gameObject.SetActive(false);
+        SetViewExtrasActive(false);
 
         foreach (var groupBlock in GroupBlocks)
             groupBlock.gameObject.SetActive(false);

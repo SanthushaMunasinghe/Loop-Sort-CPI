@@ -15,6 +15,7 @@ public partial class Carrier
 
     private readonly List<Vector3> _originalGroupContainerPositions = new();
     private readonly List<Vector3> _originalGroupBlockPositions = new();
+    private List<ViewExtra> _viewExtras;
 
     public async UniTaskVoid ApplyOpenBackMotion(bool immediate = false)
     {
@@ -187,6 +188,71 @@ public partial class Carrier
             .WithEase(Ease.InOutBack)
             .BindToLocalEulerAnglesZ(t);
         t.localScale = Vector3.zero;
+
+        // Everything else in the View (a cart's badge background and checkmark shadow) pops in with
+        // the checkmark, the same way, but settles back on its own authored scale and tilt.
+        foreach (var extra in GetViewExtras())
+        {
+            var extraT = extra.Transform;
+            extraT.gameObject.SetActive(true);
+            LMotion.Create(extra.Scale * 2f, extra.Scale, .5f)
+                .WithEase(Ease.InOutBack)
+                .BindToLocalScale(extraT);
+            LMotion.Create(extra.EulerZ + 10f, extra.EulerZ, .5f)
+                .WithEase(Ease.InOutBack)
+                .BindToLocalEulerAnglesZ(extraT);
+            extraT.localScale = Vector3.zero;
+        }
+    }
+
+    /// <summary>Hides the checkmark and everything else in the View at once, no motion — see
+    /// ShoppingCartExit, which clears a completed cart's badge once it has backed out of its seat.</summary>
+    public void HideCompletionView()
+    {
+        View.GetImage(ImageRole.Checkmark).gameObject.SetActive(false);
+        SetViewExtrasActive(false);
+    }
+
+    private void SetViewExtrasActive(bool active)
+    {
+        foreach (var extra in GetViewExtras())
+            extra.Transform.gameObject.SetActive(active);
+    }
+
+    /// <summary>
+    /// View's direct children other than the registered checkmark, with their authored scale and
+    /// tilt. Captured lazily on first use: OnRent first runs from inside base.Awake, before the rest of
+    /// Carrier.Awake, and always before any completion motion has touched them.
+    /// </summary>
+    private List<ViewExtra> GetViewExtras()
+    {
+        if (_viewExtras != null) return _viewExtras;
+
+        _viewExtras = new List<ViewExtra>();
+        if (View == null) return _viewExtras;
+
+        var checkmark = View.GetImage(ImageRole.Checkmark).transform;
+        var viewT = View.transform;
+        for (var i = 0; i < viewT.childCount; i++)
+        {
+            var child = viewT.GetChild(i);
+            if (child == checkmark) continue;
+            _viewExtras.Add(new ViewExtra
+            {
+                Transform = child,
+                Scale = child.localScale,
+                EulerZ = child.localEulerAngles.z,
+            });
+        }
+
+        return _viewExtras;
+    }
+
+    private struct ViewExtra
+    {
+        public Transform Transform;
+        public Vector3 Scale;
+        public float EulerZ;
     }
 
     /// <summary>

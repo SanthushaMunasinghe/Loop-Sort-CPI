@@ -160,6 +160,8 @@ public sealed class ShoppingCartExit : GameBehaviourBase
             .AddTo(this)
             .ToUniTask(ReturnToken);
 
+        cart.HideCompletionView();
+
         // The seat is clear now — the old cart has backed a full length out of the row.
         if (_seats.TryGetValue(cart, out var seat))
             RespawnCart(cart, seat).Forget();
