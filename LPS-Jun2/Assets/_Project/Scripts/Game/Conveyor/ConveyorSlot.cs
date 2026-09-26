@@ -78,8 +78,11 @@ public sealed class ConveyorSlot : GameBehaviourBase, IBlockContainer
         _addingElementCount++;
         var blockT = block.transform;
         // blockT.parent = null;
-        await UniTask.NextFrame(SceneLoadToken);
-        await UniTask.Delay(TimeSpan.FromSeconds(delay), delayTiming: PlayerLoopTiming.FixedUpdate, cancellationToken: SceneLoadToken);
+        if (motion)
+        {
+            await UniTask.NextFrame(SceneLoadToken);
+            await UniTask.Delay(TimeSpan.FromSeconds(delay), delayTiming: PlayerLoopTiming.FixedUpdate, cancellationToken: SceneLoadToken);
+        }
         blockT.parent = isPhysicsActive ? null : transform;
 
         var configSize = _carrierConfig.Sizes[_blockPhysicsConfig.Type];
@@ -113,7 +116,17 @@ public sealed class ConveyorSlot : GameBehaviourBase, IBlockContainer
         //     targetRotation = Vector3.Dot(transform.right, blockT.forward) > 0f ? rotation1 : rotation2;
         // }
 
-        await block.ApplyMoveToSlotMotion(targetPosition, targetRotation);
+        // No motion places the block straight onto its spot — SceneScope.PrefillConveyor seeds the belt
+        // this way at level start, where the usual jump would hop every item at once.
+        if (motion)
+        {
+            await block.ApplyMoveToSlotMotion(targetPosition, targetRotation);
+        }
+        else
+        {
+            blockT.localPosition = targetPosition;
+            blockT.localRotation = targetRotation;
+        }
 
         _addingElementCount--;
 

@@ -9,7 +9,7 @@ using UnityEngine;
 /// want it active in, same as GlobalTrigger or SceneScope. Only invokes actions; the actions
 /// themselves live wherever they're already owned (e.g. SceneScope.ToggleGlobalTrigger).
 ///
-/// T - toggle the scene's Global Trigger on/off
+/// T - turn on every trigger in SceneScope's Shortcut Triggers (all Block Triggers when it's empty)
 /// Q - start/stop Unity Recorder, using whatever settings are already set up in the Recorder window
 /// R - reload the active scene
 /// O - lerp every Empty Carrier Row with Use Start Position Lerp on back to its authored position
@@ -27,23 +27,22 @@ public sealed class ShortcutManager : MonoBehaviour
 
     private void Update()
     {
-        if (InputH.GetKeyDown(KeyCode.T)) ToggleGlobalTrigger();
+        if (InputH.GetKeyDown(KeyCode.T)) EnableTriggers();
         if (InputH.GetKeyDown(KeyCode.Q)) ToggleRecording();
         if (InputH.GetKeyDown(KeyCode.R)) ReloadScene();
         if (InputH.GetKeyDown(KeyCode.O)) LerpEmptyCarrierRows();
         if (InputH.GetKeyDown(KeyCode.P)) TogglePointer();
     }
 
-    private void ToggleGlobalTrigger()
+    private void EnableTriggers()
     {
         if (_sceneScope == null)
         {
-            Debug.LogWarning($"<b>{nameof(ShortcutManager)}</b>: no Scene Scope assigned, can't toggle Global Trigger.", this);
+            Debug.LogWarning($"<b>{nameof(ShortcutManager)}</b>: no Scene Scope assigned, can't enable triggers.", this);
             return;
         }
 
-        _sceneScope.ToggleGlobalTrigger();
-        Debug.Log($"<b>{nameof(ShortcutManager)}</b>: toggled Global Trigger.", this);
+        _sceneScope.EnableShortcutTriggers();
     }
 
     private void ToggleRecording()

@@ -145,6 +145,10 @@ public sealed class LevelSandbox : MonoBehaviour
 
         _levelBuildCompletePub.Publish(new LevelBuildCompleteMessage());
 
+        // The slots are adopted and the physics spline baked on that message, so the belt can take
+        // items now.
+        _sceneScope.PrefillConveyor(_slotsRoot);
+
         await UniTask.NextFrame(token);
 
         _slotCreateCompletePub.Publish(new SlotCreateCompleteMessage());

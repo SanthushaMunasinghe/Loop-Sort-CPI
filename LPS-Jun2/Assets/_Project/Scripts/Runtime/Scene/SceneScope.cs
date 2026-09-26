@@ -140,6 +140,23 @@ public sealed class SceneScope : LifetimeScope
              "belt. Leave at 0 to use ConveyorConfig's SlotElementOffset.")]
     [SerializeField] private float _conveyorSlotElementOffsetOverride;
 
+    [Tooltip("Shopping Carts only: how full the belt starts, as a percent of its capacity (every slot " +
+             "times Slot Element Count, capped by Conveyor Max Block Count). Seeded at level start with " +
+             "Grocery Items of random types, spread evenly around the loop and already moving. 0 spawns " +
+             "nothing.")]
+    [Range(0f, 100f)]
+    [SerializeField] private float _conveyorPrefillPercent;
+
+    [Header("Triggers")]
+    [Tooltip("Switches every Shortcut Trigger below off before anything reaches the belt — including " +
+             "Conveyor Prefill Percent's items — so nothing gets picked up until ShortcutManager's T key " +
+             "turns them back on.")]
+    [SerializeField] private bool _disableTriggersOnStart;
+
+    [Tooltip("The triggers ShortcutManager's T key turns on (and Disable Triggers On Start turns off). " +
+             "Assigned by hand. Leave empty to use every Block Trigger in the scene.")]
+    [SerializeField] private List<BlockTrigger> _shortcutTriggers = new();
+
     [Header("Scene")]
     [Tooltip("Your camera. InteractionModule raycasts through it — without one there is no input.")]
     [SerializeField] private Camera _camera;
@@ -365,6 +382,31 @@ public sealed class SceneScope : LifetimeScope
         blockTrigger.SetActive(!blockTrigger.IsActive);
     }
 
+    /// <summary>Turns every Shortcut Trigger on. See ShortcutManager's T key.</summary>
+    public void EnableShortcutTriggers() => SetShortcutTriggersActive(true);
+
+    /// <summary>
+    /// Flips each Shortcut Trigger's BlockTrigger.IsActive — not the GameObject, for the same reason as
+    /// ToggleGlobalTrigger: disabling it would drop the listener BlockTriggerSystem binds only once.
+    /// An empty list means every BlockTrigger in the scene.
+    /// </summary>
+    private void SetShortcutTriggersActive(bool active)
+    {
+        var triggers = _shortcutTriggers.Count > 0
+            ? _shortcutTriggers
+            : FindObjectsByType<BlockTrigger>(FindObjectsInactive.Include, FindObjectsSortMode.None).ToList();
+
+        var count = 0;
+        foreach (var trigger in triggers)
+        {
+            if (trigger == null) continue;
+            trigger.SetActive(active);
+            count++;
+        }
+
+        Debug.Log($"<b>{nameof(SceneScope)}</b>: {(active ? "enabled" : "disabled")} {count} trigger(s).", this);
+    }
+
     /// <summary>
     /// Flips the Pointer GameObject active/inactive. Turning it on first moves it to the mouse
     /// position — a raycast against the Default layer, the same hit test InteractionModule uses for
@@ -436,6 +478,10 @@ public sealed class SceneScope : LifetimeScope
         base.Awake();
 
         ApplyRandomBlockColors();
+
+        // Here at -100, ahead of every Block's Awake and well before LevelSandbox seeds the belt, so no
+        // block can reach a trigger that's meant to start off.
+        if (_disableTriggersOnStart) SetShortcutTriggersActive(false);
     }
 
     protected override void OnDestroy()
@@ -851,6 +897,58 @@ public sealed class SceneScope : LifetimeScope
         var index = _shoppingCarts.IndexOf(oldCart);
         if (index >= 0) _shoppingCarts[index] = newCart;
         else _shoppingCarts.Add(newCart);
+    }
+
+    /// <summary>
+    /// Seeds the belt with Conveyor Prefill Percent of its capacity in Grocery Items, each a random
+    /// type, handed to the slots exactly the way a cart hands items out (ConveyorSlot.AddBlock) — just
+    /// placed straight onto their spots instead of jumping there — so they ride, collide and get picked
+    /// up like any other item. Spread evenly: item i goes to slot i * slots / items, so every slot ends
+    /// up within one item of every other.
+    ///
+    /// Called by LevelSandbox once the slots are adopted and the physics spline is baked
+    /// (LevelBuildCompleteMessage), which is also after Disable Triggers On Start has run.
+    /// </summary>
+    public void PrefillConveyor(Transform slotsRoot)
+    {
+        if (_conveyorPrefillPercent <= 0f) return;
+
+        if (!_useShoppingCarts)
+        {
+            Debug.LogWarning($"<b>{nameof(SceneScope)}</b>: Conveyor Prefill Percent is set but Use Shopping " +
+                             "Carts is off — the prefill only spawns Grocery Items. Belt left empty.", this);
+            return;
+        }
+
+        if (slotsRoot == null || _conveyor == null || _groceryItemPrefab == null) return;
+
+        using var p1 = ListPool<int>.Get(out var types);
+        for (var i = 0; i < _groceryModels.Count; i++)
+            if (_groceryModels[i]?.Model != null) types.Add(i);
+        if (types.Count == 0) return;
+
+        using var p2 = ListPool<ConveyorSlot>.Get(out var slots);
+        slotsRoot.GetComponentsInChildren(false, slots);
+        if (slots.Count == 0) return;
+
+        var perSlot = _conveyor.SlotElementCount;
+        var capacity = slots.Count * perSlot;
+        if (_conveyorMaxBlockCount > 0) capacity = Mathf.Min(capacity, _conveyorMaxBlockCount);
+
+        var itemCount = Mathf.RoundToInt(capacity * _conveyorPrefillPercent / 100f);
+        for (var i = 0; i < itemCount; i++)
+        {
+            var slot = slots[(int)((long)i * slots.Count / itemCount)];
+            if (!slot.HasSpace()) continue;
+
+            var type = types[UnityEngine.Random.Range(0, types.Count)];
+            var item = Instantiate(_groceryItemPrefab, slot.transform.position, Quaternion.identity);
+            item.SetType(type, _groceryModels[type]);
+            slot.AddBlock(item.GetComponent<Block>(), motion: false).Forget();
+        }
+
+        Debug.Log($"<b>{nameof(SceneScope)}</b>: prefilled the conveyor with {itemCount} of {capacity} " +
+                  $"({_conveyorPrefillPercent:0.#}%).", this);
     }
 
     private static void RemoveGroceryPreview(Carrier cart)
