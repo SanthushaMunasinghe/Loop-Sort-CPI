@@ -12,8 +12,10 @@ public sealed class LookAtCameraEffect : EffectBase
     {
         if (_camera == null)
         {
+            // A level scene played on its own (TestRunner) has no BootstrapScope — fall back to the
+            // scene's own camera rather than throwing and never facing it.
             var scope = LifetimeScopeH.FindScope<BootstrapScope>();
-            _camera = scope.Container.Resolve<Camera>();
+            _camera = scope != null ? scope.Container.Resolve<Camera>() : Camera.main;
         }
     }
 
