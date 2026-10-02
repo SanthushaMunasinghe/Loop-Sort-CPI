@@ -14,7 +14,8 @@ using VContainer;
 /// the whole way, hands on the handle.
 ///
 /// The moment it finishes reversing, a fresh cart pops up in its seat (see RespawnCart) and takes
-/// over its place in play, so the row is never short a cart.
+/// over its place in play, so the row is never short a cart — unless Scene Scope's Disable Shopping
+/// Cart Respawn is on, in which case the seat is simply left empty.
 ///
 /// Hooks CarrierBackClosedMessage, same as EmptyCarrierRowExit. A cart has no lid renderers, so
 /// Carrier.ApplyCloseBackMotion returns at once and that message lands the same frame as the
@@ -167,8 +168,10 @@ public sealed class ShoppingCartExit : GameBehaviourBase
 
         cart.HideCompletionView();
 
-        // The seat is clear now — the old cart has backed a full length out of the row.
-        if (_seats.TryGetValue(cart, out var seat))
+        // The seat is clear now — the old cart has backed a full length out of the row. With respawning
+        // switched off it stays that way, and the old cart stays registered so it still counts as a
+        // completed carrier.
+        if (!_sceneScope.DisableShoppingCartRespawn && _seats.TryGetValue(cart, out var seat))
             RespawnCart(cart, seat).Forget();
 
         using var pooled = UnityEngine.Pool.ListPool<Vector3>.Get(out var controlPoints);

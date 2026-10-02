@@ -102,6 +102,17 @@ public sealed class SceneScope : LifetimeScope
              "per group. Each needs its own GroceryTrigger somewhere in the scene to take items in.")]
     [SerializeField] private List<Carrier> _shoppingCarts = new();
 
+    [Tooltip("Stops completed carts being replaced: once a cart has left, its seat stays empty. Off " +
+             "means Shopping Cart Exit pops a fresh cart up in the seat the moment the old one has " +
+             "backed out of it.")]
+    [SerializeField] private bool _disableShoppingCartRespawn;
+
+    [Tooltip("Gives every cart one required grocery type, drawn at random, and makes that the only " +
+             "type it takes in off the belt and the only one it completes on. No two carts share a " +
+             "type until there are more carts than Grocery Models. Carts are still filled with " +
+             "random items. Off means carts sort as usual, taking whatever matches their top item.")]
+    [SerializeField] private bool _useShoppingCartRequiredTypes;
+
     [Tooltip("The unified Grocery Item prefab every cart is filled with.")]
     [SerializeField] private GroceryItem _groceryItemPrefab;
 
@@ -225,6 +236,7 @@ public sealed class SceneScope : LifetimeScope
 
     public bool UseShoppingCarts => _useShoppingCarts;
     public IReadOnlyList<Carrier> ShoppingCarts => _shoppingCarts;
+    public bool DisableShoppingCartRespawn => _disableShoppingCartRespawn;
     public IReadOnlyList<GroceryModel> GroceryModels => _groceryModels;
     public Vector3 GroceryItemSpacing => _groceryItemSpacing;
 
@@ -845,6 +857,9 @@ public sealed class SceneScope : LifetimeScope
     /// DrawShoppingCartTypes, laid out by GetGroceryItemLocalPosition (through Carrier.AddBlock).
     ///
     /// Any editor preview left in a cart is thrown away first — the real stack is always re-rolled.
+    ///
+    /// With Use Shopping Cart Required Types on, each cart is dealt its required type just before it
+    /// is filled, so the fill's own completion check already knows what the cart is after.
     /// </summary>
     public void FillShoppingCarts()
     {
@@ -860,10 +875,12 @@ public sealed class SceneScope : LifetimeScope
         {
             if (cart == null || !cart.gameObject.activeInHierarchy) continue;
 
+            AssignShoppingCartRequiredType(cart);
             var types = FillShoppingCartItems(cart, itemsPerGroup);
             if (types == null) return;
 
-            log.Add($"{cart.name} [{string.Join(", ", types.Select(t => _groceryModels[t].Name))}]");
+            log.Add($"{cart.name}{DescribeRequiredType(cart)} " +
+                    $"[{string.Join(", ", types.Select(t => _groceryModels[t].Name))}]");
         }
 
         if (log.Count > 0)
@@ -872,7 +889,8 @@ public sealed class SceneScope : LifetimeScope
 
     /// <summary>
     /// Fills one freshly spawned cart with a new random stack, exactly the way FillShoppingCarts does
-    /// at level start — see ShoppingCartExit, which respawns a cart in a completed one's seat.
+    /// at level start — see ShoppingCartExit, which respawns a cart in a completed one's seat. That
+    /// includes its own required type when Use Shopping Cart Required Types is on.
     /// </summary>
     public void FillShoppingCart(Carrier cart)
     {
@@ -881,11 +899,64 @@ public sealed class SceneScope : LifetimeScope
         RemoveGroceryPreview(cart);
         if (!CanFillShoppingCarts(out var itemsPerGroup)) return;
 
+        AssignShoppingCartRequiredType(cart);
         var types = FillShoppingCartItems(cart, itemsPerGroup);
         if (types == null) return;
 
-        Debug.Log($"<b>{nameof(SceneScope)}</b>: respawned {cart.name} " +
+        Debug.Log($"<b>{nameof(SceneScope)}</b>: respawned {cart.name}{DescribeRequiredType(cart)} " +
                   $"[{string.Join(", ", types.Select(t => _groceryModels[t].Name))}].", this);
+    }
+
+    /// <summary>
+    /// Deals cart its required grocery type when Use Shopping Cart Required Types is on: a random one
+    /// of the types the fewest other carts in play are already after. Dealt one cart at a time, that
+    /// keeps every cart's type unique until there are more carts than Grocery Models with a Model, and
+    /// spreads the repeats evenly past that.
+    ///
+    /// A completed cart is on its way out and doesn't count, so a cart respawned in its seat is free
+    /// to pick the type it just took with it. Carts not dealt a type yet don't count either.
+    /// </summary>
+    private void AssignShoppingCartRequiredType(Carrier cart)
+    {
+        if (!_useShoppingCartRequiredTypes) return;
+        if (!cart.TryGetComponent<ShoppingCart>(out var shoppingCart)) return;
+
+        using var p = ListPool<int>.Get(out var candidates);
+        var fewestUses = int.MaxValue;
+        for (var type = 0; type < _groceryModels.Count; type++)
+        {
+            if (_groceryModels[type]?.Model == null) continue;
+
+            var uses = 0;
+            foreach (var other in _shoppingCarts)
+            {
+                if (other == null || other == cart || other.IsComplete()) continue;
+                if (other.TryGetComponent<ShoppingCart>(out var otherCart) && otherCart.RequiredType == type)
+                    uses++;
+            }
+
+            if (uses > fewestUses) continue;
+            if (uses < fewestUses)
+            {
+                fewestUses = uses;
+                candidates.Clear();
+            }
+
+            candidates.Add(type);
+        }
+
+        // Nothing to draw from — FillShoppingCartItems warns about that right after this.
+        if (candidates.Count == 0) return;
+
+        shoppingCart.SetRequiredType(candidates[UnityEngine.Random.Range(0, candidates.Count)]);
+    }
+
+    /// <summary>" wants Milk" for the fill logs, or nothing for a cart with no required type.</summary>
+    private string DescribeRequiredType(Carrier cart)
+    {
+        return cart.TryGetComponent<ShoppingCart>(out var shoppingCart) && shoppingCart.HasRequiredType
+            ? $" wants {_groceryModels[shoppingCart.RequiredType].Name}"
+            : string.Empty;
     }
 
     /// <summary>
