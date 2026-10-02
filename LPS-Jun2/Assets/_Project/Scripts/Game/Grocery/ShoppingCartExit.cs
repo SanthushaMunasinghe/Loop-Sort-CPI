@@ -10,10 +10,12 @@ using VContainer;
 /// Drives a completed shopping cart out of the level: once its checkmark pops it waits Reverse
 /// Delay, backs straight out of its row over Reverse Duration, then turns and rides this side's
 /// path to whichever despawn point is closer over Leave Duration — and just parks there, out of
-/// view. Nothing is disabled or returned to a pool.
+/// view. Nothing is disabled or returned to a pool. The cart's shopper (CartPusher) walks with it
+/// the whole way, hands on the handle.
 ///
 /// The moment it finishes reversing, a fresh cart pops up in its seat (see RespawnCart) and takes
-/// over its place in play, so the row is never short a cart.
+/// over its place in play, so the row is never short a cart — unless Scene Scope's Disable Shopping
+/// Cart Respawn is on, in which case the seat is simply left empty.
 ///
 /// Hooks CarrierBackClosedMessage, same as EmptyCarrierRowExit. A cart has no lid renderers, so
 /// Carrier.ApplyCloseBackMotion returns at once and that message lands the same frame as the
@@ -81,7 +83,14 @@ public sealed class ShoppingCartExit : GameBehaviourBase
     [Inject] private SceneScope _sceneScope;
     [Inject] private ISubscriber<CarrierBackClosedMessage> _carrierBackClosedSub;
 
+    [Header("Complete")]
+    [Tooltip("Played full screen once every cart has completed and left, when Scene Scope's Use " +
+             "Shopping Cart Required Types is on.")]
+    [SerializeField] private ShoppingCompleteVideo _completeVideo;
+
     private readonly HashSet<Carrier> _exiting = new();
+    private readonly HashSet<Carrier> _gone = new();
+    private bool _completeVideoPlayed;
     private readonly Dictionary<Carrier, Seat> _seats = new();
     private GroceryTrigger[] _groceryTriggers;
 
@@ -150,6 +159,14 @@ public sealed class ShoppingCartExit : GameBehaviourBase
 
         await UniTask.Delay(System.TimeSpan.FromSeconds(_reverseDelay), cancellationToken: ReturnToken);
 
+        // The shopper holding the handle walks with the cart from here on, at whatever pace it moves.
+        var pusher = cart.GetComponentInChildren<CartPusher>();
+        if (pusher != null) pusher.StartWalking();
+
+        // They have what they came for.
+        var thoughtCloud = cart.GetComponentInChildren<ShopperThoughtCloud>();
+        if (thoughtCloud != null) thoughtCloud.Hide();
+
         // -Z is the cart's basket end (see EmptyCarrierRowExit), so backing out is along +forward.
         var reverseDirection = Flatten(cartT.forward).normalized;
         var reverseEnd = startPosition + reverseDirection * _reverseDistance;
@@ -162,8 +179,10 @@ public sealed class ShoppingCartExit : GameBehaviourBase
 
         cart.HideCompletionView();
 
-        // The seat is clear now — the old cart has backed a full length out of the row.
-        if (_seats.TryGetValue(cart, out var seat))
+        // The seat is clear now — the old cart has backed a full length out of the row. With respawning
+        // switched off it stays that way, and the old cart stays registered so it still counts as a
+        // completed carrier.
+        if (!_sceneScope.DisableShoppingCartRespawn && _seats.TryGetValue(cart, out var seat))
             RespawnCart(cart, seat).Forget();
 
         using var pooled = UnityEngine.Pool.ListPool<Vector3>.Get(out var controlPoints);
@@ -204,6 +223,32 @@ public sealed class ShoppingCartExit : GameBehaviourBase
             })
             .AddTo(this)
             .ToUniTask(ReturnToken);
+
+        if (pusher != null) pusher.StopWalking();
+
+        _gone.Add(cart);
+        TryPlayCompleteVideo();
+    }
+
+    /// <summary>
+    /// Plays Complete Video once every cart in play has completed and reached its despawn point —
+    /// only with Scene Scope's Use Shopping Cart Required Types on. A respawned cart takes the old
+    /// one's place in Shopping Carts and hasn't gone anywhere, so this only ever fires with respawning
+    /// switched off.
+    /// </summary>
+    private void TryPlayCompleteVideo()
+    {
+        if (_completeVideoPlayed || _completeVideo == null) return;
+        if (!_sceneScope.UseShoppingCartRequiredTypes) return;
+
+        foreach (var cart in _sceneScope.ShoppingCarts)
+        {
+            if (cart == null || !cart.gameObject.activeInHierarchy) continue;
+            if (!_gone.Contains(cart)) return;
+        }
+
+        _completeVideoPlayed = true;
+        _completeVideo.Play();
     }
 
     /// <summary>

@@ -156,6 +156,7 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
     [Inject] private ISubscriber<BlockTransferCompleteMessage> _blockTransferCompleteSub;
 
     private Material _originalMaterial;
+    private ShoppingCart _shoppingCart;
     private Vector3 _originalHeadScale = Vector3.one;
     private BlockPhysicsConfig _blockPhysicsConfig;
     private SoundConfig _soundConfig;
@@ -185,7 +186,7 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
         _originalMaterial = HeadRenderer.sharedMaterials[0];
         _originalHeadScale = HeadRenderer.transform.localScale;
         GetComponentsInChildren(_transferHandlers);
-        IsShoppingCart = TryGetComponent<ShoppingCart>(out _);
+        IsShoppingCart = TryGetComponent(out _shoppingCart);
     }
 
     public override void OnRent()
@@ -918,7 +919,10 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
         // IsFull rather than HasReachedCompleteCount: the latter reads the conveyor's own max block
         // count directly, which would ignore whatever Default Group Count set the capacity to above.
         // The two are the same number whenever Default Group Count matches the level's group count.
-        return IsFull() && AreAllBlocksSameColor();
+        if (!IsFull() || !AreAllBlocksSameColor()) return false;
+
+        // A cart after one type doesn't close on a full load of anything else it was spawned with.
+        return !TryGetRequiredMatchKey(out var requiredKey) || GetNextColorType() == requiredKey;
     }
 
     public bool CanTransferBlock(Block block)
@@ -928,11 +932,29 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
         // A restricted sink takes its one colour and lets everything else ride past.
         if (IsSink() && OnlyCompatibleColor && block.ColorType != CompatibleColor) return false;
 
+        // Same for a cart with a required type. This is on top of the usual top-item match, not
+        // instead of it — see BlockTransferSystem.HandleCarrierTrigger.
+        if (TryGetRequiredMatchKey(out var requiredKey) && block.ColorType != requiredKey) return false;
+
         if (_transferHandlers.Count == 0) return true;
         foreach (var handler in _transferHandlers)
             if (!handler.CanTransferBlock(block))
                 return false;
         return true;
+    }
+
+    /// <summary>The match key of the one grocery type this cart is after, when SceneScope's Use
+    /// Shopping Cart Required Types has dealt it one — see ShoppingCart.RequiredType.</summary>
+    private bool TryGetRequiredMatchKey(out ColorType matchKey)
+    {
+        if (IsShoppingCart && _shoppingCart.HasRequiredType)
+        {
+            matchKey = GroceryItem.ToMatchKey(_shoppingCart.RequiredType);
+            return true;
+        }
+
+        matchKey = default;
+        return false;
     }
 
     public bool IsBetterCarrier(Block block)
