@@ -102,6 +102,17 @@ public sealed class SceneScope : LifetimeScope
              "per group. Each needs its own GroceryTrigger somewhere in the scene to take items in.")]
     [SerializeField] private List<Carrier> _shoppingCarts = new();
 
+    [Tooltip("Stops completed carts being replaced: once a cart has left, its seat stays empty. Off " +
+             "means Shopping Cart Exit pops a fresh cart up in the seat the moment the old one has " +
+             "backed out of it.")]
+    [SerializeField] private bool _disableShoppingCartRespawn;
+
+    [Tooltip("Gives every cart one required grocery type, drawn at random, and makes that the only " +
+             "type it takes in off the belt and the only one it completes on. No two carts share a " +
+             "type until there are more carts than Grocery Models. Carts are still filled with " +
+             "random items. Off means carts sort as usual, taking whatever matches their top item.")]
+    [SerializeField] private bool _useShoppingCartRequiredTypes;
+
     [Tooltip("The unified Grocery Item prefab every cart is filled with.")]
     [SerializeField] private GroceryItem _groceryItemPrefab;
 
@@ -225,6 +236,8 @@ public sealed class SceneScope : LifetimeScope
 
     public bool UseShoppingCarts => _useShoppingCarts;
     public IReadOnlyList<Carrier> ShoppingCarts => _shoppingCarts;
+    public bool DisableShoppingCartRespawn => _disableShoppingCartRespawn;
+    public bool UseShoppingCartRequiredTypes => _useShoppingCartRequiredTypes;
     public IReadOnlyList<GroceryModel> GroceryModels => _groceryModels;
     public Vector3 GroceryItemSpacing => _groceryItemSpacing;
 
@@ -845,6 +858,9 @@ public sealed class SceneScope : LifetimeScope
     /// DrawShoppingCartTypes, laid out by GetGroceryItemLocalPosition (through Carrier.AddBlock).
     ///
     /// Any editor preview left in a cart is thrown away first — the real stack is always re-rolled.
+    ///
+    /// With Use Shopping Cart Required Types on, every cart is dealt its required type first and the
+    /// stacks are then dealt from one balanced pool instead — see DealRequiredShoppingCartTypes.
     /// </summary>
     public void FillShoppingCarts()
     {
@@ -855,15 +871,26 @@ public sealed class SceneScope : LifetimeScope
 
         if (!CanFillShoppingCarts(out var itemsPerGroup)) return;
 
+        // Every cart gets its required type before any is filled: the balanced deal below needs to
+        // know what all of them are after.
+        foreach (var cart in _shoppingCarts)
+            if (cart != null && cart.gameObject.activeInHierarchy)
+                AssignShoppingCartRequiredType(cart);
+
+        var dealtTypes = DealRequiredShoppingCartTypes();
+
         using var p = ListPool<string>.Get(out var log);
         foreach (var cart in _shoppingCarts)
         {
             if (cart == null || !cart.gameObject.activeInHierarchy) continue;
 
-            var types = FillShoppingCartItems(cart, itemsPerGroup);
+            List<int> presetTypes = null;
+            dealtTypes?.TryGetValue(cart, out presetTypes);
+            var types = FillShoppingCartItems(cart, itemsPerGroup, presetTypes);
             if (types == null) return;
 
-            log.Add($"{cart.name} [{string.Join(", ", types.Select(t => _groceryModels[t].Name))}]");
+            log.Add($"{cart.name}{DescribeRequiredType(cart)} " +
+                    $"[{string.Join(", ", types.Select(t => _groceryModels[t].Name))}]");
         }
 
         if (log.Count > 0)
@@ -871,8 +898,81 @@ public sealed class SceneScope : LifetimeScope
     }
 
     /// <summary>
+    /// With Use Shopping Cart Required Types on, the level-start fill isn't drawn cart by cart: every
+    /// cart puts a full load of its own required type into one pool, and the pool is shuffled and
+    /// dealt back out a cart's worth at a time. So the carts between them hold exactly what all of
+    /// them need, just in the wrong places. Null when the toggle is off or no cart has a type.
+    ///
+    /// A deal that leaves a cart holding nothing but its own type (complete before the first tap) is
+    /// reshuffled, as is one that leaves any cart all one type while Prevent Single Color Carriers is
+    /// on. Some setups can't avoid that — a single cart, say — so after a bounded number of tries the
+    /// last deal stands.
+    /// </summary>
+    private Dictionary<Carrier, List<int>> DealRequiredShoppingCartTypes()
+    {
+        if (!_useShoppingCartRequiredTypes) return null;
+
+        var carts = new List<(Carrier Cart, int RequiredType, int GroupCount)>();
+        var pool = new List<int>();
+        foreach (var cart in _shoppingCarts)
+        {
+            if (cart == null || !cart.gameObject.activeInHierarchy) continue;
+            if (!cart.TryGetComponent<ShoppingCart>(out var shoppingCart) || !shoppingCart.HasRequiredType) continue;
+
+            var groupCount = cart.GetDefaultFillGroupCount();
+            carts.Add((cart, shoppingCart.RequiredType, groupCount));
+            for (var i = 0; i < groupCount; i++)
+                pool.Add(shoppingCart.RequiredType);
+        }
+
+        if (carts.Count == 0) return null;
+
+        const int maxTries = 100;
+        for (var attempt = 0; attempt < maxTries; attempt++)
+        {
+            for (var i = pool.Count - 1; i > 0; i--)
+            {
+                var j = UnityEngine.Random.Range(0, i + 1);
+                (pool[i], pool[j]) = (pool[j], pool[i]);
+            }
+
+            if (IsAcceptableDeal()) break;
+        }
+
+        var dealt = new Dictionary<Carrier, List<int>>();
+        var next = 0;
+        foreach (var (cart, _, groupCount) in carts)
+        {
+            dealt[cart] = pool.GetRange(next, groupCount);
+            next += groupCount;
+        }
+
+        return dealt;
+
+        bool IsAcceptableDeal()
+        {
+            var start = 0;
+            foreach (var (_, requiredType, groupCount) in carts)
+            {
+                var isSingleType = true;
+                for (var i = 1; i < groupCount; i++)
+                    if (pool[start + i] != pool[start])
+                        isSingleType = false;
+
+                if (isSingleType && pool[start] == requiredType) return false;
+                if (isSingleType && groupCount > 1 && _preventSingleColorCarriers) return false;
+
+                start += groupCount;
+            }
+
+            return true;
+        }
+    }
+
+    /// <summary>
     /// Fills one freshly spawned cart with a new random stack, exactly the way FillShoppingCarts does
-    /// at level start — see ShoppingCartExit, which respawns a cart in a completed one's seat.
+    /// at level start — see ShoppingCartExit, which respawns a cart in a completed one's seat. That
+    /// includes its own required type when Use Shopping Cart Required Types is on.
     /// </summary>
     public void FillShoppingCart(Carrier cart)
     {
@@ -881,11 +981,73 @@ public sealed class SceneScope : LifetimeScope
         RemoveGroceryPreview(cart);
         if (!CanFillShoppingCarts(out var itemsPerGroup)) return;
 
+        AssignShoppingCartRequiredType(cart);
         var types = FillShoppingCartItems(cart, itemsPerGroup);
         if (types == null) return;
 
-        Debug.Log($"<b>{nameof(SceneScope)}</b>: respawned {cart.name} " +
+        Debug.Log($"<b>{nameof(SceneScope)}</b>: respawned {cart.name}{DescribeRequiredType(cart)} " +
                   $"[{string.Join(", ", types.Select(t => _groceryModels[t].Name))}].", this);
+    }
+
+    /// <summary>
+    /// Deals cart its required grocery type when Use Shopping Cart Required Types is on: a random one
+    /// of the types the fewest other carts in play are already after. Dealt one cart at a time, that
+    /// keeps every cart's type unique until there are more carts than Grocery Models with a Model, and
+    /// spreads the repeats evenly past that.
+    ///
+    /// A completed cart is on its way out and doesn't count, so a cart respawned in its seat is free
+    /// to pick the type it just took with it. Carts not dealt a type yet don't count either.
+    /// </summary>
+    private void AssignShoppingCartRequiredType(Carrier cart)
+    {
+        if (!_useShoppingCartRequiredTypes) return;
+        if (!cart.TryGetComponent<ShoppingCart>(out var shoppingCart)) return;
+
+        using var p = ListPool<int>.Get(out var candidates);
+        var fewestUses = int.MaxValue;
+        for (var type = 0; type < _groceryModels.Count; type++)
+        {
+            if (_groceryModels[type]?.Model == null) continue;
+
+            var uses = 0;
+            foreach (var other in _shoppingCarts)
+            {
+                if (other == null || other == cart || other.IsComplete()) continue;
+                if (other.TryGetComponent<ShoppingCart>(out var otherCart) && otherCart.RequiredType == type)
+                    uses++;
+            }
+
+            if (uses > fewestUses) continue;
+            if (uses < fewestUses)
+            {
+                fewestUses = uses;
+                candidates.Clear();
+            }
+
+            candidates.Add(type);
+        }
+
+        // Nothing to draw from — FillShoppingCartItems warns about that right after this.
+        if (candidates.Count == 0) return;
+
+        var requiredType = candidates[UnityEngine.Random.Range(0, candidates.Count)];
+        shoppingCart.SetRequiredType(requiredType);
+
+        // The shopper wears the type's colour, which is what tells the player what the cart is after.
+        var pusher = cart.GetComponentInChildren<CartPusher>();
+        if (pusher != null)
+            pusher.SetColors(_groceryModels[requiredType].ShopperColor, _groceryModels[requiredType].CapColor);
+
+        var thoughtCloud = cart.GetComponentInChildren<ShopperThoughtCloud>();
+        if (thoughtCloud != null) thoughtCloud.Show(_groceryModels[requiredType].Icon);
+    }
+
+    /// <summary>" wants Milk" for the fill logs, or nothing for a cart with no required type.</summary>
+    private string DescribeRequiredType(Carrier cart)
+    {
+        return cart.TryGetComponent<ShoppingCart>(out var shoppingCart) && shoppingCart.HasRequiredType
+            ? $" wants {_groceryModels[shoppingCart.RequiredType].Name}"
+            : string.Empty;
     }
 
     /// <summary>
@@ -979,10 +1141,11 @@ public sealed class SceneScope : LifetimeScope
         return true;
     }
 
-    /// <summary>The drawn types, one per group — or null, with a warning, when there's nothing to draw.</summary>
-    private List<int> FillShoppingCartItems(Carrier cart, int itemsPerGroup)
+    /// <summary>The types the cart was filled with, one per group — presetTypes when given, a fresh
+    /// random draw otherwise — or null, with a warning, when there's nothing to draw.</summary>
+    private List<int> FillShoppingCartItems(Carrier cart, int itemsPerGroup, List<int> presetTypes = null)
     {
-        var types = DrawShoppingCartTypes(cart);
+        var types = presetTypes ?? DrawShoppingCartTypes(cart);
         if (types == null)
         {
             Debug.LogWarning($"<b>{nameof(SceneScope)}</b>: Use Shopping Carts is on but Grocery Models " +
