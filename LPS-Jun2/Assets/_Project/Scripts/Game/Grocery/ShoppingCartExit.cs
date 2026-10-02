@@ -156,6 +156,10 @@ public sealed class ShoppingCartExit : GameBehaviourBase
         var pusher = cart.GetComponentInChildren<CartPusher>();
         if (pusher != null) pusher.StartWalking();
 
+        // They have what they came for.
+        var thoughtCloud = cart.GetComponentInChildren<ShopperThoughtCloud>();
+        if (thoughtCloud != null) thoughtCloud.Hide();
+
         // -Z is the cart's basket end (see EmptyCarrierRowExit), so backing out is along +forward.
         var reverseDirection = Flatten(cartT.forward).normalized;
         var reverseEnd = startPosition + reverseDirection * _reverseDistance;

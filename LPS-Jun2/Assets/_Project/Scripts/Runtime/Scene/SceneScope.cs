@@ -1036,6 +1036,9 @@ public sealed class SceneScope : LifetimeScope
         var pusher = cart.GetComponentInChildren<CartPusher>();
         if (pusher != null)
             pusher.SetColors(_groceryModels[requiredType].ShopperColor, _groceryModels[requiredType].CapColor);
+
+        var thoughtCloud = cart.GetComponentInChildren<ShopperThoughtCloud>();
+        if (thoughtCloud != null) thoughtCloud.Show(_groceryModels[requiredType].Icon);
     }
 
     /// <summary>" wants Milk" for the fill logs, or nothing for a cart with no required type.</summary>

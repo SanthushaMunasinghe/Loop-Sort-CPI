@@ -21,6 +21,9 @@ public sealed class GroceryModel
     [Tooltip("Colour of that shopper's cap.")]
     public Color CapColor = Color.white;
 
+    [Tooltip("Shown in the thought cloud over that shopper's head.")]
+    public Sprite Icon;
+
     [Tooltip("Local position of the Grocery Item's Model Root while it holds this model — nudges the " +
              "model within its grid cell.")]
     public Vector3 SpawnPosition = Vector3.zero;
