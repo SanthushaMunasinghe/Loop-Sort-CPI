@@ -10,7 +10,8 @@ using VContainer;
 /// Drives a completed shopping cart out of the level: once its checkmark pops it waits Reverse
 /// Delay, backs straight out of its row over Reverse Duration, then turns and rides this side's
 /// path to whichever despawn point is closer over Leave Duration — and just parks there, out of
-/// view. Nothing is disabled or returned to a pool.
+/// view. Nothing is disabled or returned to a pool. The cart's shopper (CartPusher) walks with it
+/// the whole way, hands on the handle.
 ///
 /// The moment it finishes reversing, a fresh cart pops up in its seat (see RespawnCart) and takes
 /// over its place in play, so the row is never short a cart.
@@ -150,6 +151,10 @@ public sealed class ShoppingCartExit : GameBehaviourBase
 
         await UniTask.Delay(System.TimeSpan.FromSeconds(_reverseDelay), cancellationToken: ReturnToken);
 
+        // The shopper holding the handle walks with the cart from here on, at whatever pace it moves.
+        var pusher = cart.GetComponentInChildren<CartPusher>();
+        if (pusher != null) pusher.StartWalking();
+
         // -Z is the cart's basket end (see EmptyCarrierRowExit), so backing out is along +forward.
         var reverseDirection = Flatten(cartT.forward).normalized;
         var reverseEnd = startPosition + reverseDirection * _reverseDistance;
@@ -204,6 +209,8 @@ public sealed class ShoppingCartExit : GameBehaviourBase
             })
             .AddTo(this)
             .ToUniTask(ReturnToken);
+
+        if (pusher != null) pusher.StopWalking();
     }
 
     /// <summary>

@@ -211,6 +211,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
+  - {fileID: 718139677983745084}
   - {fileID: 6379793378336713664}
   - {fileID: 3452334910105335998}
   - {fileID: 196684644278198045}
@@ -220,6 +221,8 @@ Transform:
   - {fileID: 7889277408804200975}
   - {fileID: 539510873889630077}
   - {fileID: 3735593526907358321}
+  - {fileID: 2601163336318079004}
+  - {fileID: 2803506850218125521}
   m_Father: {fileID: 1198472366096555422}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2264733854636624086
@@ -849,6 +852,37 @@ Transform:
   m_Children: []
   m_Father: {fileID: 8519202072514310979}
   m_LocalEulerAnglesHint: {x: 0, y: 180, z: 0}
+--- !u!1 &5772556836959439020
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2601163336318079004}
+  m_Layer: 0
+  m_Name: Handle Grip L
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2601163336318079004
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5772556836959439020}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0.031229137, y: 0.9955594, z: -0.08825455, w: 0.009865892}
+  m_LocalPosition: {x: 0.34600002, y: 4.15, z: 5.87}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8519202072514310979}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &6210849848869940035
 GameObject:
   m_ObjectHideFlags: 0
@@ -1188,6 +1222,37 @@ Transform:
   - {fileID: 2124155625997757050}
   m_Father: {fileID: 8519202072514310979}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &7584444549835949198
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2803506850218125521}
+  m_Layer: 0
+  m_Name: Handle Grip R
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2803506850218125521
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7584444549835949198}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0.031229137, y: -0.9955594, z: 0.08825455, w: 0.009865892}
+  m_LocalPosition: {x: -0.85400003, y: 4.15, z: 5.87}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8519202072514310979}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &7876910845886060517
 GameObject:
   m_ObjectHideFlags: 0
@@ -1511,6 +1576,117 @@ PrefabInstance:
 Transform:
   m_CorrespondingSourceObject: {fileID: 455184, guid: c261d56826c3e435ea62540512de6a29, type: 3}
   m_PrefabInstance: {fileID: 539510873889183085}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1001 &1044238379583587287
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 8519202072514310979}
+    m_Modifications:
+    - target: {fileID: -8679921383154817045, guid: a04b188127404482d9230931bc6cb9d4, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: a04b188127404482d9230931bc6cb9d4, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: a04b188127404482d9230931bc6cb9d4, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: a04b188127404482d9230931bc6cb9d4, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -0.254
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: a04b188127404482d9230931bc6cb9d4, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -0.2
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: a04b188127404482d9230931bc6cb9d4, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 6.6
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: a04b188127404482d9230931bc6cb9d4, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: a04b188127404482d9230931bc6cb9d4, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: a04b188127404482d9230931bc6cb9d4, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: a04b188127404482d9230931bc6cb9d4, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: a04b188127404482d9230931bc6cb9d4, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: a04b188127404482d9230931bc6cb9d4, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 180
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: a04b188127404482d9230931bc6cb9d4, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: a04b188127404482d9230931bc6cb9d4, type: 3}
+      propertyPath: m_ConstrainProportionsScale
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: a04b188127404482d9230931bc6cb9d4, type: 3}
+      propertyPath: m_Name
+      value: Body Type 21@Walking
+      objectReference: {fileID: 0}
+    - target: {fileID: 5866666021909216657, guid: a04b188127404482d9230931bc6cb9d4, type: 3}
+      propertyPath: m_Controller
+      value: 
+      objectReference: {fileID: 9100000, guid: a37962e0edbf84a64ad60c7f5e433103, type: 2}
+    - target: {fileID: 5866666021909216657, guid: a04b188127404482d9230931bc6cb9d4, type: 3}
+      propertyPath: m_ApplyRootMotion
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: a04b188127404482d9230931bc6cb9d4, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1417219906754923353}
+  m_SourcePrefab: {fileID: 100100000, guid: a04b188127404482d9230931bc6cb9d4, type: 3}
+--- !u!1 &197182669843725958 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: a04b188127404482d9230931bc6cb9d4, type: 3}
+  m_PrefabInstance: {fileID: 1044238379583587287}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1417219906754923353
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 197182669843725958}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c5c92f8f4f8b34a72bf9b1421a114ea3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CartPusher
+  _leftGrip: {fileID: 2601163336318079004}
+  _rightGrip: {fileID: 2803506850218125521}
+  _gripWeight: 1
+  _strideSpeed: 0.92
+  _maxPlaybackSpeed: 10
+--- !u!4 &718139677983745084 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: a04b188127404482d9230931bc6cb9d4, type: 3}
+  m_PrefabInstance: {fileID: 1044238379583587287}
   m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1539780079605743028
 PrefabInstance:
