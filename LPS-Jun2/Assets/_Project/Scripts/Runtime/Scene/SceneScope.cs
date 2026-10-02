@@ -237,6 +237,7 @@ public sealed class SceneScope : LifetimeScope
     public bool UseShoppingCarts => _useShoppingCarts;
     public IReadOnlyList<Carrier> ShoppingCarts => _shoppingCarts;
     public bool DisableShoppingCartRespawn => _disableShoppingCartRespawn;
+    public bool UseShoppingCartRequiredTypes => _useShoppingCartRequiredTypes;
     public IReadOnlyList<GroceryModel> GroceryModels => _groceryModels;
     public Vector3 GroceryItemSpacing => _groceryItemSpacing;
 

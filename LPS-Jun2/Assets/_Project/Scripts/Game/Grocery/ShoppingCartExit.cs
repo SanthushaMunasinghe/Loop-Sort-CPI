@@ -83,7 +83,14 @@ public sealed class ShoppingCartExit : GameBehaviourBase
     [Inject] private SceneScope _sceneScope;
     [Inject] private ISubscriber<CarrierBackClosedMessage> _carrierBackClosedSub;
 
+    [Header("Complete")]
+    [Tooltip("Played full screen once every cart has completed and left, when Scene Scope's Use " +
+             "Shopping Cart Required Types is on.")]
+    [SerializeField] private ShoppingCompleteVideo _completeVideo;
+
     private readonly HashSet<Carrier> _exiting = new();
+    private readonly HashSet<Carrier> _gone = new();
+    private bool _completeVideoPlayed;
     private readonly Dictionary<Carrier, Seat> _seats = new();
     private GroceryTrigger[] _groceryTriggers;
 
@@ -218,6 +225,30 @@ public sealed class ShoppingCartExit : GameBehaviourBase
             .ToUniTask(ReturnToken);
 
         if (pusher != null) pusher.StopWalking();
+
+        _gone.Add(cart);
+        TryPlayCompleteVideo();
+    }
+
+    /// <summary>
+    /// Plays Complete Video once every cart in play has completed and reached its despawn point —
+    /// only with Scene Scope's Use Shopping Cart Required Types on. A respawned cart takes the old
+    /// one's place in Shopping Carts and hasn't gone anywhere, so this only ever fires with respawning
+    /// switched off.
+    /// </summary>
+    private void TryPlayCompleteVideo()
+    {
+        if (_completeVideoPlayed || _completeVideo == null) return;
+        if (!_sceneScope.UseShoppingCartRequiredTypes) return;
+
+        foreach (var cart in _sceneScope.ShoppingCarts)
+        {
+            if (cart == null || !cart.gameObject.activeInHierarchy) continue;
+            if (!_gone.Contains(cart)) return;
+        }
+
+        _completeVideoPlayed = true;
+        _completeVideo.Play();
     }
 
     /// <summary>
