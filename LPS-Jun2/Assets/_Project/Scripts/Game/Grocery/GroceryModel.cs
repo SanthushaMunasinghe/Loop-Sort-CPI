@@ -14,6 +14,13 @@ public sealed class GroceryModel
     [Tooltip("Model spawned under the Grocery Item's Model Root. Its colliders are switched off.")]
     public GameObject Model;
 
+    [Tooltip("Body colour the shopper of a cart that requires this type is painted — see SceneScope's Use " +
+             "Shopping Cart Required Types. Shoppers keep their own default colour otherwise.")]
+    public Color ShopperColor = Color.white;
+
+    [Tooltip("Colour of that shopper's cap.")]
+    public Color CapColor = Color.white;
+
     [Tooltip("Local position of the Grocery Item's Model Root while it holds this model — nudges the " +
              "model within its grid cell.")]
     public Vector3 SpawnPosition = Vector3.zero;

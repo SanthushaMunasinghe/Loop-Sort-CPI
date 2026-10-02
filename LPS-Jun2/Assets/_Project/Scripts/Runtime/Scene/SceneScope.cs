@@ -858,8 +858,8 @@ public sealed class SceneScope : LifetimeScope
     ///
     /// Any editor preview left in a cart is thrown away first — the real stack is always re-rolled.
     ///
-    /// With Use Shopping Cart Required Types on, each cart is dealt its required type just before it
-    /// is filled, so the fill's own completion check already knows what the cart is after.
+    /// With Use Shopping Cart Required Types on, every cart is dealt its required type first and the
+    /// stacks are then dealt from one balanced pool instead — see DealRequiredShoppingCartTypes.
     /// </summary>
     public void FillShoppingCarts()
     {
@@ -870,13 +870,22 @@ public sealed class SceneScope : LifetimeScope
 
         if (!CanFillShoppingCarts(out var itemsPerGroup)) return;
 
+        // Every cart gets its required type before any is filled: the balanced deal below needs to
+        // know what all of them are after.
+        foreach (var cart in _shoppingCarts)
+            if (cart != null && cart.gameObject.activeInHierarchy)
+                AssignShoppingCartRequiredType(cart);
+
+        var dealtTypes = DealRequiredShoppingCartTypes();
+
         using var p = ListPool<string>.Get(out var log);
         foreach (var cart in _shoppingCarts)
         {
             if (cart == null || !cart.gameObject.activeInHierarchy) continue;
 
-            AssignShoppingCartRequiredType(cart);
-            var types = FillShoppingCartItems(cart, itemsPerGroup);
+            List<int> presetTypes = null;
+            dealtTypes?.TryGetValue(cart, out presetTypes);
+            var types = FillShoppingCartItems(cart, itemsPerGroup, presetTypes);
             if (types == null) return;
 
             log.Add($"{cart.name}{DescribeRequiredType(cart)} " +
@@ -885,6 +894,78 @@ public sealed class SceneScope : LifetimeScope
 
         if (log.Count > 0)
             Debug.Log($"<b>{nameof(SceneScope)}</b>: shopping carts — {string.Join("; ", log)}.", this);
+    }
+
+    /// <summary>
+    /// With Use Shopping Cart Required Types on, the level-start fill isn't drawn cart by cart: every
+    /// cart puts a full load of its own required type into one pool, and the pool is shuffled and
+    /// dealt back out a cart's worth at a time. So the carts between them hold exactly what all of
+    /// them need, just in the wrong places. Null when the toggle is off or no cart has a type.
+    ///
+    /// A deal that leaves a cart holding nothing but its own type (complete before the first tap) is
+    /// reshuffled, as is one that leaves any cart all one type while Prevent Single Color Carriers is
+    /// on. Some setups can't avoid that — a single cart, say — so after a bounded number of tries the
+    /// last deal stands.
+    /// </summary>
+    private Dictionary<Carrier, List<int>> DealRequiredShoppingCartTypes()
+    {
+        if (!_useShoppingCartRequiredTypes) return null;
+
+        var carts = new List<(Carrier Cart, int RequiredType, int GroupCount)>();
+        var pool = new List<int>();
+        foreach (var cart in _shoppingCarts)
+        {
+            if (cart == null || !cart.gameObject.activeInHierarchy) continue;
+            if (!cart.TryGetComponent<ShoppingCart>(out var shoppingCart) || !shoppingCart.HasRequiredType) continue;
+
+            var groupCount = cart.GetDefaultFillGroupCount();
+            carts.Add((cart, shoppingCart.RequiredType, groupCount));
+            for (var i = 0; i < groupCount; i++)
+                pool.Add(shoppingCart.RequiredType);
+        }
+
+        if (carts.Count == 0) return null;
+
+        const int maxTries = 100;
+        for (var attempt = 0; attempt < maxTries; attempt++)
+        {
+            for (var i = pool.Count - 1; i > 0; i--)
+            {
+                var j = UnityEngine.Random.Range(0, i + 1);
+                (pool[i], pool[j]) = (pool[j], pool[i]);
+            }
+
+            if (IsAcceptableDeal()) break;
+        }
+
+        var dealt = new Dictionary<Carrier, List<int>>();
+        var next = 0;
+        foreach (var (cart, _, groupCount) in carts)
+        {
+            dealt[cart] = pool.GetRange(next, groupCount);
+            next += groupCount;
+        }
+
+        return dealt;
+
+        bool IsAcceptableDeal()
+        {
+            var start = 0;
+            foreach (var (_, requiredType, groupCount) in carts)
+            {
+                var isSingleType = true;
+                for (var i = 1; i < groupCount; i++)
+                    if (pool[start + i] != pool[start])
+                        isSingleType = false;
+
+                if (isSingleType && pool[start] == requiredType) return false;
+                if (isSingleType && groupCount > 1 && _preventSingleColorCarriers) return false;
+
+                start += groupCount;
+            }
+
+            return true;
+        }
     }
 
     /// <summary>
@@ -948,7 +1029,13 @@ public sealed class SceneScope : LifetimeScope
         // Nothing to draw from — FillShoppingCartItems warns about that right after this.
         if (candidates.Count == 0) return;
 
-        shoppingCart.SetRequiredType(candidates[UnityEngine.Random.Range(0, candidates.Count)]);
+        var requiredType = candidates[UnityEngine.Random.Range(0, candidates.Count)];
+        shoppingCart.SetRequiredType(requiredType);
+
+        // The shopper wears the type's colour, which is what tells the player what the cart is after.
+        var pusher = cart.GetComponentInChildren<CartPusher>();
+        if (pusher != null)
+            pusher.SetColors(_groceryModels[requiredType].ShopperColor, _groceryModels[requiredType].CapColor);
     }
 
     /// <summary>" wants Milk" for the fill logs, or nothing for a cart with no required type.</summary>
@@ -1050,10 +1137,11 @@ public sealed class SceneScope : LifetimeScope
         return true;
     }
 
-    /// <summary>The drawn types, one per group — or null, with a warning, when there's nothing to draw.</summary>
-    private List<int> FillShoppingCartItems(Carrier cart, int itemsPerGroup)
+    /// <summary>The types the cart was filled with, one per group — presetTypes when given, a fresh
+    /// random draw otherwise — or null, with a warning, when there's nothing to draw.</summary>
+    private List<int> FillShoppingCartItems(Carrier cart, int itemsPerGroup, List<int> presetTypes = null)
     {
-        var types = DrawShoppingCartTypes(cart);
+        var types = presetTypes ?? DrawShoppingCartTypes(cart);
         if (types == null)
         {
             Debug.LogWarning($"<b>{nameof(SceneScope)}</b>: Use Shopping Carts is on but Grocery Models " +

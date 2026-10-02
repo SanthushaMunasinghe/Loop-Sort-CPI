@@ -41,13 +41,44 @@ public sealed class CartPusher : MonoBehaviour
     [Min(0.01f)]
     [SerializeField] private float _maxPlaybackSpeed = 10f;
 
+    [Header("Colour")]
+    [Tooltip("The shopper's body. Painted through a property block, so the shared material is left alone.")]
+    [SerializeField] private Renderer _bodyRenderer;
+
+    [Tooltip("The shopper's cap. Keeps its own material colour unless their cart has a required type.")]
+    [SerializeField] private Renderer _capRenderer;
+
+    [Tooltip("What the shopper wears unless their cart has a required type — then SceneScope paints " +
+             "them that type's Shopper Colour and Cap Colour instead.")]
+    [SerializeField] private Color _defaultColor = new(.25f, .55f, 1f);
+
+    private static readonly int ColorProperty = Shader.PropertyToID("_Color");
+
     private Animator _animator;
+    private MaterialPropertyBlock _propertyBlock;
     private Vector3 _lastPosition;
     private bool _isWalking;
 
     private void Awake()
     {
         _animator = GetComponent<Animator>();
+        Paint(_bodyRenderer, _defaultColor);
+    }
+
+    public void SetColors(Color bodyColor, Color capColor)
+    {
+        Paint(_bodyRenderer, bodyColor);
+        Paint(_capRenderer, capColor);
+    }
+
+    private void Paint(Renderer target, Color color)
+    {
+        if (target == null) return;
+
+        _propertyBlock ??= new MaterialPropertyBlock();
+        target.GetPropertyBlock(_propertyBlock);
+        _propertyBlock.SetColor(ColorProperty, color);
+        target.SetPropertyBlock(_propertyBlock);
     }
 
     /// <summary>Cross-fades into the walk. Its pace then follows the cart every frame until StopWalking.</summary>
