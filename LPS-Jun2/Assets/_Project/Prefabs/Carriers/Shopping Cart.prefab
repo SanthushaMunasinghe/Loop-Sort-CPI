@@ -843,7 +843,7 @@ Transform:
   m_GameObject: {fileID: 5232180122965109032}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: 1, z: -0, w: 0.0000005960464}
-  m_LocalPosition: {x: 0.75, y: 0.946, z: 3.8360002}
+  m_LocalPosition: {x: 0.6333, y: 0.946, z: 3.486}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -924,7 +924,7 @@ MonoBehaviour:
   <OverrideStartColor>k__BackingField: 0
   <OverrideStartColorIndices>k__BackingField: 
   <MaxConsecutiveSameColorGroups>k__BackingField: 0
-  <DefaultGroupCount>k__BackingField: 4
+  <DefaultGroupCount>k__BackingField: 2
   <EmptyGroupLimit>k__BackingField: 4
   <OverrideCloseMotion>k__BackingField: 0
   <CloseWaitTimeOverride>k__BackingField: 0
@@ -1584,6 +1584,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: ShoppingCart-long-1
       objectReference: {fileID: 0}
+    - target: {fileID: 4816924249676244543, guid: 2f7e900e1edf458439ffd919e6fc207d, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: -969701224625256338, guid: 2f7e900e1edf458439ffd919e6fc207d, type: 3}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
