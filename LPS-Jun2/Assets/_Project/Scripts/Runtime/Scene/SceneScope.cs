@@ -199,6 +199,14 @@ public sealed class SceneScope : LifetimeScope
              "belt before this elapses since the last play are silent instead of retriggering the clip.")]
     [SerializeField] private float _blockConveyorJumpAudioMinInterval = .1f;
 
+    [Tooltip("Played each time a block starts its jump off the conveyor onto a carrier — i.e. every " +
+             "time a grocery item hops into a shopping cart.")]
+    [SerializeField] private AudioSource _blockCarrierJumpAudioSource;
+
+    [Tooltip("Minimum time between Block Carrier Jump Audio Source plays. Blocks that jump onto a " +
+             "carrier before this elapses since the last play are silent instead of retriggering the clip.")]
+    [SerializeField] private float _blockCarrierJumpAudioMinInterval = .05f;
+
     [Header("Systems")]
     [Tooltip("Only these SystemBase types are constructed. Everything else in the project is ignored.")]
     [SerializeField]
@@ -470,6 +478,22 @@ public sealed class SceneScope : LifetimeScope
 
         _lastBlockConveyorJumpPlayTime = Time.time;
         _blockConveyorJumpAudioSource.Play();
+    }
+
+    private float _lastBlockCarrierJumpPlayTime = float.NegativeInfinity;
+
+    /// <summary>
+    /// Plays Block Carrier Jump Audio Source, but only if Block Carrier Jump Audio Min Interval has
+    /// elapsed since the last play — so a burst of blocks jumping onto carriers within the same
+    /// instant doesn't retrigger the clip on top of itself.
+    /// </summary>
+    public void PlayBlockCarrierJumpSound()
+    {
+        if (_blockCarrierJumpAudioSource == null) return;
+        if (Time.time - _lastBlockCarrierJumpPlayTime < _blockCarrierJumpAudioMinInterval) return;
+
+        _lastBlockCarrierJumpPlayTime = Time.time;
+        _blockCarrierJumpAudioSource.Play();
     }
 
     private World _world;
