@@ -439,6 +439,7 @@ public sealed partial class Carrier : GameBehaviourBase, ITouchInteractable, IBl
             }
 
             _hapticModule.PlaySoft();
+            _sceneScope.PlayBlockCarrierJumpSound();
         }
 
         var targetPosition = localPosition;
